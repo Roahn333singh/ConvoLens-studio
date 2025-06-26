@@ -8,7 +8,6 @@ import {
   Mic,
   RefreshCw,
   Search,
-  Square,
   Upload,
   ZoomIn,
   ZoomOut
@@ -61,10 +60,9 @@ export default function VisAigePage() {
     isQuerying: false,
     isTranscribing: false,
   });
-  const [isRecording, setIsRecording] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -89,59 +87,48 @@ export default function VisAigePage() {
     }
   };
 
-  const handleToggleRecording = async () => {
-    if (isRecording) {
-        mediaRecorderRef.current?.stop();
-        setIsRecording(false);
-    } else {
-        if (!navigator.mediaDevices?.getUserMedia) {
-            toast({ variant: "destructive", title: "Audio Recording Not Supported", description: "Your browser does not support this feature." });
-            return;
-        }
-
+  const handleAudioFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid File Type',
+          description: 'Please upload an audio file.',
+        });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Data = e.target?.result as string;
+        setLoading((prev) => ({ ...prev, isTranscribing: true }));
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
-            mediaRecorderRef.current = recorder;
-            const audioChunks: Blob[] = [];
-
-            recorder.ondataavailable = (event) => {
-                if (event.data.size > 0) audioChunks.push(event.data);
-            };
-
-            recorder.onstop = () => {
-                stream.getTracks().forEach(track => track.stop());
-                if (audioChunks.length === 0) {
-                    toast({ variant: "destructive", title: "No Audio Recorded", description: "No audio was captured. Please try again." });
-                    return;
-                }
-                const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64Data = reader.result as string;
-                    setLoading(prev => ({ ...prev, isTranscribing: true }));
-                    try {
-                        const result = await transcribeAudio({ audioDataUri: base64Data });
-                        setData(result.transcript);
-                        toast({ title: "Audio Transcribed", description: "Your audio has been converted to text." });
-                    } catch (error) {
-                        console.error(error);
-                        toast({ variant: "destructive", title: "Error Transcribing", description: "Could not transcribe audio." });
-                    } finally {
-                        setLoading(prev => ({ ...prev, isTranscribing: false }));
-                    }
-                };
-            };
-            
-            recorder.start();
-            setIsRecording(true);
-            toast({ title: "Recording Started", description: "Speak into your microphone." });
-
-        } catch (err) {
-            console.error("Error accessing microphone:", err);
-            toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions in your browser." });
+          const result = await transcribeAudio({ audioDataUri: base64Data });
+          setData(result.transcript);
+          toast({
+            title: 'Audio Transcribed',
+            description:
+              'Your audio has been converted to text and loaded into the data input.',
+          });
+        } catch (error) {
+          console.error(error);
+          toast({
+            variant: 'destructive',
+            title: 'Error Transcribing',
+            description: 'Could not transcribe audio.',
+          });
+        } finally {
+          setLoading((prev) => ({ ...prev, isTranscribing: false }));
         }
+      };
+      reader.onerror = () => {
+        toast({
+          variant: 'destructive',
+          title: 'File Error',
+          description: 'There was an error reading the audio file.',
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -262,17 +249,27 @@ export default function VisAigePage() {
                     </Button>
                   </TabsContent>
                   <TabsContent value="audio" className="mt-4">
-                    <Button className="w-full" variant="outline" onClick={handleToggleRecording} disabled={loading.isTranscribing}>
-                        {loading.isTranscribing ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
-                        ) : isRecording ? (
-                            <Square className="w-4 h-4 mr-2 fill-current"/>
-                        ) : (
-                            <Mic className="w-4 h-4 mr-2"/>
-                        )}
-                        {loading.isTranscribing ? 'Transcribing...' : isRecording ? 'Stop Recording' : 'Start Recording'}
+                    <Input
+                      id="audio-file-upload"
+                      type="file"
+                      ref={audioFileInputRef}
+                      onChange={handleAudioFileChange}
+                      className="hidden"
+                      accept="audio/*"
+                    />
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => audioFileInputRef.current?.click()}
+                      disabled={loading.isTranscribing}
+                    >
+                      {loading.isTranscribing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4 mr-2" />
+                      )}
+                      {loading.isTranscribing ? 'Transcribing...' : 'Upload an audio file'}
                     </Button>
-                    {isRecording && <p className="text-sm text-muted-foreground text-center mt-2 animate-pulse">Recording in progress...</p>}
                   </TabsContent>
                 </Tabs>
                 
@@ -299,24 +296,48 @@ export default function VisAigePage() {
 
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="font-headline">Summary</CardTitle>
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <CardTitle className="font-headline">Graph Visualization</CardTitle>
+                    <CardDescription>Network generated from your data.</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={() => setZoom(z => z + 0.1)}>
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}>
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={handleRefreshGraph} disabled={loading.isGeneratingGraph}>
+                      <RefreshCw className={`w-4 h-4 ${loading.isGeneratingGraph ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <Button onClick={handleSummarize} disabled={loading.isSummarizing} className="w-full mb-4">
-                  {loading.isSummarizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Summarize Data
-                </Button>
-                {loading.isSummarizing ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-4/5" />
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground min-h-[60px]">
-                    {summary || 'Click the button to generate a summary of your data.'}
-                  </p>
-                )}
+                <div className="w-full h-[400px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
+                  {loading.isGeneratingGraph ? (
+                    <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
+                      <BrainCircuit className="w-16 h-16" />
+                      <p className="font-headline">Generating graph...</p>
+                    </div>
+                  ) : graphImage ? (
+                     <div className="w-full h-full p-4 overflow-auto">
+                        <img
+                            src={graphImage}
+                            alt="Generated Graph Network"
+                            className="transition-transform duration-300 origin-center"
+                            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                        />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
+                        <BrainCircuit className="w-16 h-16" />
+                        <p className="font-headline text-lg mt-4">Your Graph Appears Here</p>
+                        <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network of relationships and concepts within it.</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -354,48 +375,29 @@ export default function VisAigePage() {
           <div className="w-full lg:w-2/3">
             <Card className="shadow-md sticky top-8">
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <CardTitle className="font-headline">Graph Visualization</CardTitle>
-                    <CardDescription>Network generated from your data.</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => setZoom(z => z + 0.1)}>
-                      <ZoomIn className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}>
-                      <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={handleRefreshGraph} disabled={loading.isGeneratingGraph}>
-                      <RefreshCw className={`w-4 h-4 ${loading.isGeneratingGraph ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </div>
-                </div>
+                <CardTitle className="font-headline">Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="w-full h-[600px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
-                  {loading.isGeneratingGraph ? (
-                    <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
-                      <BrainCircuit className="w-16 h-16" />
-                      <p className="font-headline">Generating graph...</p>
-                    </div>
-                  ) : graphImage ? (
-                     <div className="w-full h-full p-4 overflow-auto">
-                        <img
-                            src={graphImage}
-                            alt="Generated Graph Network"
-                            className="transition-transform duration-300 origin-center"
-                            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-                        />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
-                        <BrainCircuit className="w-16 h-16" />
-                        <p className="font-headline text-lg mt-4">Your Graph Appears Here</p>
-                        <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network of relationships and concepts within it.</p>
-                    </div>
-                  )}
-                </div>
+                <Button onClick={handleSummarize} disabled={loading.isSummarizing} className="w-full mb-4">
+                  {loading.isSummarizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Summarize Data
+                </Button>
+                {loading.isSummarizing ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-4/5" />
+                  </div>
+                ) : (
+                  <Textarea
+                    readOnly
+                    placeholder="Click the button to generate a summary of your data."
+                    className="text-sm text-muted-foreground min-h-[560px] bg-background"
+                    value={summary}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
