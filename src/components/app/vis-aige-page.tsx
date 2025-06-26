@@ -296,6 +296,35 @@ export default function VisAigePage() {
 
             <Card className="shadow-md">
               <CardHeader>
+                <CardTitle className="font-headline">Query Data</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 mb-4">
+                  <Input 
+                    placeholder="Ask a question about your data..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
+                  />
+                  <Button onClick={handleQuery} disabled={loading.isQuerying} variant="secondary" size="icon">
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+                {loading.isQuerying ? (
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                    </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground min-h-[40px]">
+                    {answer || 'Ask a question to get an answer from the AI.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-md">
+              <CardHeader>
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
                     <CardTitle className="font-headline">Graph Visualization</CardTitle>
@@ -338,35 +367,6 @@ export default function VisAigePage() {
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle className="font-headline">Query Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 mb-4">
-                  <Input 
-                    placeholder="Ask a question about your data..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
-                  />
-                  <Button onClick={handleQuery} disabled={loading.isQuerying} variant="secondary" size="icon">
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
-                {loading.isQuerying ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                    </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground min-h-[40px]">
-                    {answer || 'Ask a question to get an answer from the AI.'}
-                  </p>
-                )}
               </CardContent>
             </Card>
           </div>
