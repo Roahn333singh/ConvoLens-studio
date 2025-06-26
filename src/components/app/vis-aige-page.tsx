@@ -5,8 +5,10 @@ import {
   BrainCircuit,
   FileText,
   Loader2,
+  Mic,
   RefreshCw,
   Search,
+  Square,
   Upload,
   ZoomIn,
   ZoomOut
@@ -35,11 +37,13 @@ import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
 import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 
 type LoadingStates = {
   isGeneratingGraph: boolean;
   isSummarizing: boolean;
   isQuerying: boolean;
+  isTranscribing: boolean;
 };
 
 export default function VisAigePage() {
@@ -55,9 +59,12 @@ export default function VisAigePage() {
     isGeneratingGraph: false,
     isSummarizing: false,
     isQuerying: false,
+    isTranscribing: false,
   });
+  const [isRecording, setIsRecording] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -79,6 +86,62 @@ export default function VisAigePage() {
         });
       }
       reader.readAsText(file);
+    }
+  };
+
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
+    } else {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            toast({ variant: "destructive", title: "Audio Recording Not Supported", description: "Your browser does not support this feature." });
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = recorder;
+            const audioChunks: Blob[] = [];
+
+            recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) audioChunks.push(event.data);
+            };
+
+            recorder.onstop = () => {
+                stream.getTracks().forEach(track => track.stop());
+                if (audioChunks.length === 0) {
+                    toast({ variant: "destructive", title: "No Audio Recorded", description: "No audio was captured. Please try again." });
+                    return;
+                }
+                const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64Data = reader.result as string;
+                    setLoading(prev => ({ ...prev, isTranscribing: true }));
+                    try {
+                        const result = await transcribeAudio({ audioDataUri: base64Data });
+                        setData(result.transcript);
+                        toast({ title: "Audio Transcribed", description: "Your audio has been converted to text." });
+                    } catch (error) {
+                        console.error(error);
+                        toast({ variant: "destructive", title: "Error Transcribing", description: "Could not transcribe audio." });
+                    } finally {
+                        setLoading(prev => ({ ...prev, isTranscribing: false }));
+                    }
+                };
+            };
+            
+            recorder.start();
+            setIsRecording(true);
+            toast({ title: "Recording Started", description: "Speak into your microphone." });
+
+        } catch (err) {
+            console.error("Error accessing microphone:", err);
+            toast({ variant: "destructive", title: "Microphone Access Denied", description: "Please enable microphone permissions in your browser." });
+        }
     }
   };
 
@@ -171,9 +234,10 @@ export default function VisAigePage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <Tabs defaultValue="text">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text Input</TabsTrigger>
-                    <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>Upload File</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
+                    <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
+                    <TabsTrigger value="audio"><Mic className="w-4 h-4 mr-2"/>Audio</TabsTrigger>
                   </TabsList>
                   <TabsContent value="text" className="mt-4">
                     <Textarea
@@ -196,6 +260,19 @@ export default function VisAigePage() {
                         <Upload className="w-4 h-4 mr-2"/>
                         Upload a .txt or .json file
                     </Button>
+                  </TabsContent>
+                  <TabsContent value="audio" className="mt-4">
+                    <Button className="w-full" variant="outline" onClick={handleToggleRecording} disabled={loading.isTranscribing}>
+                        {loading.isTranscribing ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+                        ) : isRecording ? (
+                            <Square className="w-4 h-4 mr-2 fill-current"/>
+                        ) : (
+                            <Mic className="w-4 h-4 mr-2"/>
+                        )}
+                        {loading.isTranscribing ? 'Transcribing...' : isRecording ? 'Stop Recording' : 'Start Recording'}
+                    </Button>
+                    {isRecording && <p className="text-sm text-muted-foreground text-center mt-2 animate-pulse">Recording in progress...</p>}
                   </TabsContent>
                 </Tabs>
                 
