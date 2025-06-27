@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview Generates a graph network visualization based on input data using an LLM.
+ * @fileOverview Generates a graph network visualization by calling a Python backend.
  *
  * - generateGraphNetwork - A function that generates a graph network visualization.
  * - GenerateGraphNetworkInput - The input type for the generateGraphNetwork function.
@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {callGraphApi} from '@/services/python-api';
 
 const GenerateGraphNetworkInputSchema = z.object({
   data: z.string().describe('The data to be used to generate the graph network.'),
@@ -31,17 +32,6 @@ export async function generateGraphNetwork(input: GenerateGraphNetworkInput): Pr
   return generateGraphNetworkFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateGraphNetworkPrompt',
-  input: {schema: GenerateGraphNetworkInputSchema},
-  output: {schema: GenerateGraphNetworkOutputSchema},
-  prompt: `You are an expert in data visualization and graph network generation.
-
-  Based on the following data, generate a graph network visualization.  Return the visualization as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'.
-
-Data: {{{data}}}`,
-});
-
 const generateGraphNetworkFlow = ai.defineFlow(
   {
     name: 'generateGraphNetworkFlow',
@@ -49,7 +39,8 @@ const generateGraphNetworkFlow = ai.defineFlow(
     outputSchema: GenerateGraphNetworkOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    return output!;
+    // Instead of calling an LLM, we call the Python API service.
+    const response = await callGraphApi(input);
+    return response;
   }
 );
