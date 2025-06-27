@@ -37,12 +37,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
-import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 
 type LoadingStates = {
   isGeneratingGraph: boolean;
-  isSummarizing: boolean;
   isQuerying: boolean;
   isTranscribing: boolean;
 };
@@ -51,7 +49,6 @@ export default function VisAigePage() {
   const { toast } = useToast();
   const [data, setData] = useState('');
   const [model, setModel] = useState<'GPT' | 'LLaMA' | 'DeepSeek'>('GPT');
-  const [summary, setSummary] = useState('');
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState('');
   const [graphImage, setGraphImage] = useState('');
@@ -59,7 +56,6 @@ export default function VisAigePage() {
   const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const [loading, setLoading] = useState<LoadingStates>({
     isGeneratingGraph: false,
-    isSummarizing: false,
     isQuerying: false,
     isTranscribing: false,
   });
@@ -163,24 +159,6 @@ export default function VisAigePage() {
             title: "Nothing to refresh",
             description: "There is no data to generate a new graph from.",
         });
-    }
-  };
-
-  const handleSummarize = async () => {
-    if (!data) {
-      toast({ variant: "destructive", title: "No Data", description: "Please input data to generate a summary." });
-      return;
-    }
-    setLoading(prev => ({ ...prev, isSummarizing: true }));
-    setSummary('');
-    try {
-      const result = await summarizeUploadedData({ data });
-      setSummary(result.summary);
-    } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error Generating Summary", description: "An unexpected error occurred." });
-    } finally {
-      setLoading(prev => ({ ...prev, isSummarizing: false }));
     }
   };
 
@@ -298,64 +276,56 @@ export default function VisAigePage() {
                 </Button>
               </CardContent>
             </Card>
-
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle className="font-headline">Query Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2 mb-4">
-                  <Input 
-                    placeholder="Ask a question about your data..."
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
-                  />
-                  <Button onClick={handleQuery} disabled={loading.isQuerying} variant="secondary" size="icon">
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </div>
-                {loading.isQuerying ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                    </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground min-h-[40px]">
-                    {answer || 'Ask a question to get an answer from the AI.'}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right Column */}
           <div className="w-full lg:w-2/3 flex flex-col gap-8">
             <Card className="shadow-md">
               <CardHeader>
-                <CardTitle className="font-headline">Summary</CardTitle>
+                <CardTitle className="font-headline">Query - Answer</CardTitle>
+                <CardDescription>Ask questions about your data and get AI-powered answers.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={handleSummarize} disabled={loading.isSummarizing} className="w-full mb-4">
-                  {loading.isSummarizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Summarize Data
-                </Button>
-                {loading.isSummarizing ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-4/5" />
-                  </div>
-                ) : (
-                  <Textarea
-                    readOnly
-                    placeholder="Click the button to generate a summary of your data."
-                    className="text-sm text-muted-foreground min-h-[560px] bg-background"
-                    value={summary}
-                  />
-                )}
+                <div className="flex flex-col gap-4">
+                    <Textarea
+                        placeholder="Ask a question about your data..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleQuery();
+                            }
+                        }}
+                        className="min-h-[100px]"
+                    />
+                    <Button onClick={handleQuery} disabled={loading.isQuerying} className="w-full">
+                        {loading.isQuerying ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Search className="mr-2 h-4 w-4" />
+                        )}
+                        Get Answer
+                    </Button>
+                </div>
+
+                <div className="mt-6">
+                    <Label>Answer</Label>
+                    {loading.isQuerying ? (
+                    <div className="space-y-2 mt-2 border rounded-md p-4 min-h-[420px]">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                    </div>
+                    ) : (
+                    <Textarea
+                        readOnly
+                        placeholder="The AI's answer will appear here."
+                        className="text-sm text-muted-foreground min-h-[420px] bg-background mt-2"
+                        value={answer}
+                    />
+                    )}
+                </div>
               </CardContent>
             </Card>
 
