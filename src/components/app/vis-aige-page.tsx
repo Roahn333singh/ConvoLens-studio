@@ -63,6 +63,10 @@ export default function VisAigePage() {
     isTranscribing: false,
   });
 
+  const [activeTab, setActiveTab] = useState('text');
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioDataUri, setAudioDataUri] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,28 +104,15 @@ export default function VisAigePage() {
         });
         return;
       }
+      setAudioFile(file);
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         const base64Data = e.target?.result as string;
-        setLoading((prev) => ({ ...prev, isTranscribing: true }));
-        try {
-          const result = await transcribeAudio({ audioDataUri: base64Data });
-          setData(result.transcript);
-          toast({
-            title: 'Audio Transcribed',
-            description:
-              'Your audio has been converted to text and loaded into the data input.',
-          });
-        } catch (error) {
-          console.error(error);
-          toast({
-            variant: 'destructive',
-            title: 'Error Transcribing',
-            description: 'Could not transcribe audio.',
-          });
-        } finally {
-          setLoading((prev) => ({ ...prev, isTranscribing: false }));
-        }
+        setAudioDataUri(base64Data);
+        toast({
+          title: 'Audio File Loaded',
+          description: `${file.name} is ready for transcription.`,
+        });
       };
       reader.onerror = () => {
         toast({
@@ -131,6 +122,37 @@ export default function VisAigePage() {
         });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGetTranscript = async () => {
+    if (!audioDataUri) {
+      toast({
+        variant: 'destructive',
+        title: 'No Audio File',
+        description: 'Please upload an audio file first.',
+      });
+      return;
+    }
+    setLoading((prev) => ({ ...prev, isTranscribing: true }));
+    try {
+      const result = await transcribeAudio({ audioDataUri });
+      setData(result.transcript);
+      setActiveTab('text');
+      toast({
+        title: 'Audio Transcribed',
+        description:
+          'Your audio has been converted to text and loaded into the data input.',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Transcribing',
+        description: 'Could not transcribe audio.',
+      });
+    } finally {
+      setLoading((prev) => ({ ...prev, isTranscribing: false }));
     }
   };
 
@@ -179,7 +201,8 @@ export default function VisAigePage() {
     try {
       const result = await queryDataWithLLM({ data, query });
       setAnswer(result.answer);
-    } catch (error) {
+    } catch (error)
+      {
       console.error(error);
       toast({ variant: "destructive", title: "Error Querying Data", description: "An unexpected error occurred." });
     } finally {
@@ -208,7 +231,7 @@ export default function VisAigePage() {
               <CardContent className="flex flex-col gap-4">
                 <div className="space-y-2">
                   <Label>Data Input</Label>
-                  <Tabs defaultValue="text">
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
                       <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
@@ -237,27 +260,41 @@ export default function VisAigePage() {
                       </Button>
                     </TabsContent>
                     <TabsContent value="audio" className="mt-4">
-                      <Input
-                        id="audio-file-upload"
-                        type="file"
-                        ref={audioFileInputRef}
-                        onChange={handleAudioFileChange}
-                        className="hidden"
-                        accept="audio/*"
-                      />
-                      <Button
-                        className="w-full"
-                        variant="outline"
-                        onClick={() => audioFileInputRef.current?.click()}
-                        disabled={loading.isTranscribing}
-                      >
-                        {loading.isTranscribing ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
+                      <div className="flex flex-col gap-4">
+                        <Input
+                          id="audio-file-upload"
+                          type="file"
+                          ref={audioFileInputRef}
+                          onChange={handleAudioFileChange}
+                          className="hidden"
+                          accept="audio/*"
+                        />
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => audioFileInputRef.current?.click()}
+                        >
                           <Upload className="w-4 h-4 mr-2" />
+                          Upload an audio file
+                        </Button>
+                        {audioFile && (
+                          <div className="text-sm text-muted-foreground text-center">
+                            Loaded: <span className="font-medium text-foreground">{audioFile.name}</span>
+                          </div>
                         )}
-                        {loading.isTranscribing ? 'Transcribing...' : 'Upload an audio file'}
-                      </Button>
+                        <Button
+                          onClick={handleGetTranscript}
+                          disabled={loading.isTranscribing || !audioFile}
+                          className="w-full"
+                        >
+                          {loading.isTranscribing ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Mic className="w-4 h-4 mr-2" />
+                          )}
+                          {loading.isTranscribing ? 'Transcribing...' : 'Get Transcript'}
+                        </Button>
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </div>
@@ -390,3 +427,5 @@ export default function VisAigePage() {
     </div>
   );
 }
+
+    
