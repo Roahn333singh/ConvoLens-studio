@@ -2,6 +2,7 @@
 
 import type { GenerateGraphNetworkInput, GenerateGraphNetworkOutput } from "@/ai/flows/generate-graph-network";
 import type { QueryDataWithLLMInput, QueryDataWithLLMOutput } from "@/ai/flows/query-data-with-llm";
+import type { TranscribeAudioInput, TranscribeAudioOutput } from "@/ai/flows/transcribe-audio";
 
 /**
  * Calls the Python API to generate a graph network.
@@ -54,5 +55,33 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
     }
 
     const result: QueryDataWithLLMOutput = await response.json();
+    return result;
+}
+
+/**
+ * Calls the Python API to transcribe audio.
+ * @param input The audio data URI.
+ * @returns The transcript from the API.
+ */
+export async function callTranscribeApi(input: TranscribeAudioInput): Promise<TranscribeAudioOutput> {
+    const url = process.env.TRANSCRIBE_API_URL;
+    if (!url) {
+        throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
+    }
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+        'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to call transcribe API: ${response.statusText} - ${errorText}`);
+    }
+
+    const result: TranscribeAudioOutput = await response.json();
     return result;
 }

@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A flow for transcribing audio data.
+ * @fileOverview A flow for transcribing audio data by calling a Python backend.
  *
  * - transcribeAudio - A function that takes audio data URI and returns the transcript.
  * - TranscribeAudioInput - The input type for the transcribeAudio function.
@@ -9,6 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { callTranscribeApi } from '@/services/python-api';
 
 const TranscribeAudioInputSchema = z.object({
   audioDataUri: z
@@ -28,15 +29,6 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
   return transcribeAudioFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'transcribeAudioPrompt',
-  input: {schema: TranscribeAudioInputSchema},
-  output: {schema: TranscribeAudioOutputSchema},
-  prompt: `Transcribe the following audio.
-
-Audio: {{media url=audioDataUri}}`,
-});
-
 const transcribeAudioFlow = ai.defineFlow(
   {
     name: 'transcribeAudioFlow',
@@ -44,10 +36,8 @@ const transcribeAudioFlow = ai.defineFlow(
     outputSchema: TranscribeAudioOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error('Transcription failed: no output from model.');
-    }
-    return output;
+    // Instead of calling an LLM, we call the Python API service.
+    const response = await callTranscribeApi(input);
+    return response;
   }
 );
