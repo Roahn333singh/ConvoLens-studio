@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, useRef, ChangeEvent } from 'react';
 import {
   BrainCircuit,
+  ChevronDown,
   FileText,
   Loader2,
   Mic,
@@ -54,6 +56,7 @@ export default function VisAigePage() {
   const [answer, setAnswer] = useState('');
   const [graphImage, setGraphImage] = useState('');
   const [zoom, setZoom] = useState(1);
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const [loading, setLoading] = useState<LoadingStates>({
     isGeneratingGraph: false,
     isSummarizing: false,
@@ -142,6 +145,7 @@ export default function VisAigePage() {
     try {
       const result = await generateGraphNetwork({ data, modelType: model });
       setGraphImage(result.graphDataUri);
+      setIsGraphExpanded(true);
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error Generating Graph", description: "An unexpected error occurred." });
@@ -150,7 +154,8 @@ export default function VisAigePage() {
     }
   };
   
-  const handleRefreshGraph = () => {
+  const handleRefreshGraph = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (data) {
         handleGenerateGraph();
     } else {
@@ -322,58 +327,11 @@ export default function VisAigePage() {
                 )}
               </CardContent>
             </Card>
-
-            <Card className="shadow-md">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div className="flex flex-col">
-                    <CardTitle className="font-headline">Graph Visualization</CardTitle>
-                    <CardDescription>Network generated from your data.</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => setZoom(z => z + 0.1)}>
-                      <ZoomIn className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(0.2, z - 0.1))}>
-                      <ZoomOut className="w-4 h-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={handleRefreshGraph} disabled={loading.isGeneratingGraph}>
-                      <RefreshCw className={`w-4 h-4 ${loading.isGeneratingGraph ? 'animate-spin' : ''}`} />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="w-full h-[400px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
-                  {loading.isGeneratingGraph ? (
-                    <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
-                      <BrainCircuit className="w-16 h-16" />
-                      <p className="font-headline">Generating graph...</p>
-                    </div>
-                  ) : graphImage ? (
-                     <div className="w-full h-full p-4 overflow-auto">
-                        <img
-                            src={graphImage}
-                            alt="Generated Graph Network"
-                            className="transition-transform duration-300 origin-center"
-                            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-                        />
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
-                        <BrainCircuit className="w-16 h-16" />
-                        <p className="font-headline text-lg mt-4">Your Graph Appears Here</p>
-                        <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network of relationships and concepts within it.</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right Column */}
-          <div className="w-full lg:w-2/3">
-            <Card className="shadow-md sticky top-8">
+          <div className="w-full lg:w-2/3 flex flex-col gap-8">
+            <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="font-headline">Summary</CardTitle>
               </CardHeader>
@@ -399,6 +357,56 @@ export default function VisAigePage() {
                   />
                 )}
               </CardContent>
+            </Card>
+
+            <Card className="shadow-md">
+              <CardHeader className="cursor-pointer" onClick={() => setIsGraphExpanded(prev => !prev)}>
+                <div className="flex justify-between items-center">
+                  <div className="flex flex-col">
+                    <CardTitle className="font-headline">Graph Visualization</CardTitle>
+                    <CardDescription>Network generated from your data. Click to expand.</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => z + 0.1); }}>
+                      <ZoomIn className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(0.2, z - 0.1)); }}>
+                      <ZoomOut className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={handleRefreshGraph} disabled={loading.isGeneratingGraph}>
+                      <RefreshCw className={`w-4 h-4 ${loading.isGeneratingGraph ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${isGraphExpanded ? 'rotate-180' : ''}`} />
+                  </div>
+                </div>
+              </CardHeader>
+              {isGraphExpanded &&
+                <CardContent>
+                  <div className="w-full h-[560px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
+                    {loading.isGeneratingGraph ? (
+                      <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
+                        <BrainCircuit className="w-16 h-16" />
+                        <p className="font-headline">Generating graph...</p>
+                      </div>
+                    ) : graphImage ? (
+                      <div className="w-full h-full p-4 overflow-auto">
+                          <img
+                              src={graphImage}
+                              alt="Generated Graph Network"
+                              className="transition-transform duration-300 origin-center"
+                              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
+                          />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
+                          <BrainCircuit className="w-16 h-16" />
+                          <p className="font-headline text-lg mt-4">Your Graph Appears Here</p>
+                          <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network of relationships and concepts within it.</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              }
             </Card>
           </div>
         </div>
