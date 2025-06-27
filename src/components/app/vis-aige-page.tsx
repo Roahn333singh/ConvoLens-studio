@@ -38,6 +38,9 @@ import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 type LoadingStates = {
   isGeneratingGraph: boolean;
@@ -195,66 +198,69 @@ export default function VisAigePage() {
 
       <main className="container mx-auto p-4 md:p-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Column */}
+          {/* Left Column: Inputs */}
           <div className="w-full lg:w-1/3 flex flex-col gap-8">
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="font-headline">Controls</CardTitle>
-                <CardDescription>Input your data and select an LLM to begin.</CardDescription>
+                <CardDescription>Input data, select a model, and ask a question.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
-                <Tabs defaultValue="text">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
-                    <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
-                    <TabsTrigger value="audio"><Mic className="w-4 h-4 mr-2"/>Audio</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="text" className="mt-4">
-                    <Textarea
-                      placeholder="Paste your text or JSON data here..."
-                      className="min-h-[150px]"
-                      value={data}
-                      onChange={(e) => setData(e.target.value)}
-                    />
-                  </TabsContent>
-                  <TabsContent value="upload" className="mt-4">
-                    <Input
-                        id="file-upload"
+                <div className="space-y-2">
+                  <Label>Data Input</Label>
+                  <Tabs defaultValue="text">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
+                      <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
+                      <TabsTrigger value="audio"><Mic className="w-4 h-4 mr-2"/>Audio</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="text" className="mt-4">
+                      <Textarea
+                        placeholder="Paste your text or JSON data here..."
+                        className="min-h-[150px]"
+                        value={data}
+                        onChange={(e) => setData(e.target.value)}
+                      />
+                    </TabsContent>
+                    <TabsContent value="upload" className="mt-4">
+                      <Input
+                          id="file-upload"
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileChange}
+                          className="hidden"
+                          accept=".txt,.json"
+                      />
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                          <Upload className="w-4 h-4 mr-2"/>
+                          Upload a .txt or .json file
+                      </Button>
+                    </TabsContent>
+                    <TabsContent value="audio" className="mt-4">
+                      <Input
+                        id="audio-file-upload"
                         type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
+                        ref={audioFileInputRef}
+                        onChange={handleAudioFileChange}
                         className="hidden"
-                        accept=".txt,.json"
-                    />
-                    <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                        <Upload className="w-4 h-4 mr-2"/>
-                        Upload a .txt or .json file
-                    </Button>
-                  </TabsContent>
-                  <TabsContent value="audio" className="mt-4">
-                    <Input
-                      id="audio-file-upload"
-                      type="file"
-                      ref={audioFileInputRef}
-                      onChange={handleAudioFileChange}
-                      className="hidden"
-                      accept="audio/*"
-                    />
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={() => audioFileInputRef.current?.click()}
-                      disabled={loading.isTranscribing}
-                    >
-                      {loading.isTranscribing ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Upload className="w-4 h-4 mr-2" />
-                      )}
-                      {loading.isTranscribing ? 'Transcribing...' : 'Upload an audio file'}
-                    </Button>
-                  </TabsContent>
-                </Tabs>
+                        accept="audio/*"
+                      />
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        onClick={() => audioFileInputRef.current?.click()}
+                        disabled={loading.isTranscribing}
+                      >
+                        {loading.isTranscribing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-2" />
+                        )}
+                        {loading.isTranscribing ? 'Transcribing...' : 'Upload an audio file'}
+                      </Button>
+                    </TabsContent>
+                  </Tabs>
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="llm-select">LLM Model</Label>
@@ -274,20 +280,13 @@ export default function VisAigePage() {
                   {loading.isGeneratingGraph && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Generate Graph
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
 
-          {/* Right Column */}
-          <div className="w-full lg:w-2/3 flex flex-col gap-8">
-            <Card className="shadow-md">
-              <CardHeader>
-                <CardTitle className="font-headline">Query - Answer</CardTitle>
-                <CardDescription>Ask questions about your data and get AI-powered answers.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-4">
+                <Separator className="my-2" />
+                
+                <div className="space-y-2">
+                    <Label htmlFor="query-input">Query</Label>
                     <Textarea
+                        id="query-input"
                         placeholder="Ask a question about your data..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -297,35 +296,42 @@ export default function VisAigePage() {
                                 handleQuery();
                             }
                         }}
-                        className="min-h-[100px]"
+                        className="min-h-[120px]"
                     />
-                    <Button onClick={handleQuery} disabled={loading.isQuerying} className="w-full">
-                        {loading.isQuerying ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <Search className="mr-2 h-4 w-4" />
-                        )}
-                        Get Answer
-                    </Button>
                 </div>
-
-                <div className="mt-6">
-                    <Label>Answer</Label>
+                <Button onClick={handleQuery} disabled={loading.isQuerying} className="w-full">
                     {loading.isQuerying ? (
-                    <div className="space-y-2 mt-2 border rounded-md p-4 min-h-[420px]">
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-full" />
-                        <Skeleton className="h-4 w-5/6" />
-                    </div>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                    <Textarea
-                        readOnly
-                        placeholder="The AI's answer will appear here."
-                        className="text-sm text-muted-foreground min-h-[420px] bg-background mt-2"
-                        value={answer}
-                    />
+                        <Search className="mr-2 h-4 w-4" />
                     )}
-                </div>
+                    Get Answer
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column: Outputs */}
+          <div className="w-full lg:w-2/3 flex flex-col gap-8">
+            <Card className="shadow-md">
+              <CardHeader>
+                <CardTitle className="font-headline">Answer</CardTitle>
+                <CardDescription>The AI's response will appear here.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading.isQuerying ? (
+                  <div className="space-y-2 mt-2 border rounded-md p-4 h-[500px]">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[500px] w-full rounded-md border p-4 bg-muted/30">
+                     <p className="text-sm whitespace-pre-wrap">
+                        {answer || "The AI's answer will appear here."}
+                     </p>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
 
@@ -352,7 +358,7 @@ export default function VisAigePage() {
               </CardHeader>
               {isGraphExpanded &&
                 <CardContent>
-                  <div className="w-full h-[560px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
+                  <div className="w-full h-[500px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
                     {loading.isGeneratingGraph ? (
                       <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
                         <BrainCircuit className="w-16 h-16" />
@@ -363,7 +369,7 @@ export default function VisAigePage() {
                           <img
                               src={graphImage}
                               alt="Generated Graph Network"
-                              className="transition-transform duration-300 origin-center"
+                              className="transition-transform duration-300"
                               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           />
                       </div>
@@ -371,7 +377,7 @@ export default function VisAigePage() {
                       <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
                           <BrainCircuit className="w-16 h-16" />
                           <p className="font-headline text-lg mt-4">Your Graph Appears Here</p>
-                          <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network of relationships and concepts within it.</p>
+                          <p className="max-w-xs">Input your data and click "Generate Graph" to visualize the network.</p>
                       </div>
                     )}
                   </div>
