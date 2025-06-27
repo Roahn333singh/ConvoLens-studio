@@ -15,20 +15,28 @@ export async function callGraphApi(input: GenerateGraphNetworkInput): Promise<Ge
     throw new Error("GRAPH_API_URL environment variable is not set.");
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(input),
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to call graph API: ${response.statusText}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Could not read error response.');
+      throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const result: GenerateGraphNetworkOutput = await response.json();
+    return result;
+  } catch (error) {
+    if (error instanceof TypeError && error.message === 'fetch failed') {
+      throw new Error(`Network error: Could not connect to the graph API at ${url}. Please ensure your Python server is running and accessible.`);
+    }
+    throw error;
   }
-
-  const result: GenerateGraphNetworkOutput = await response.json();
-  return result;
 }
 
 /**
@@ -42,20 +50,28 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
         throw new Error("QUERY_API_URL environment variable is not set.");
     }
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
-    });
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(input),
+        });
 
-    if (!response.ok) {
-        throw new Error(`Failed to call query API: ${response.statusText}`);
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Could not read error response.');
+            throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const result: QueryDataWithLLMOutput = await response.json();
+        return result;
+    } catch (error) {
+        if (error instanceof TypeError && error.message === 'fetch failed') {
+            throw new Error(`Network error: Could not connect to the query API at ${url}. Please ensure your Python server is running and accessible.`);
+        }
+        throw error;
     }
-
-    const result: QueryDataWithLLMOutput = await response.json();
-    return result;
 }
 
 /**
@@ -68,20 +84,27 @@ export async function callTranscribeApi(input: TranscribeAudioInput): Promise<Tr
     if (!url) {
         throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
     }
+    
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+            'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(input),
+        });
 
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-        'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(input),
-    });
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Could not read error response.');
+            throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
 
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to call transcribe API: ${response.statusText} - ${errorText}`);
+        const result: TranscribeAudioOutput = await response.json();
+        return result;
+    } catch (error) {
+        if (error instanceof TypeError && error.message === 'fetch failed') {
+            throw new Error(`Network error: Could not connect to the transcribe API at ${url}. Please ensure your Python server is running and accessible.`);
+        }
+        throw error;
     }
-
-    const result: TranscribeAudioOutput = await response.json();
-    return result;
 }
