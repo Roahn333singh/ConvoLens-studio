@@ -146,10 +146,11 @@ export default function VisAigePage() {
       });
     } catch (error) {
       console.error(error);
+      const description = error instanceof Error ? error.message : 'An unknown error occurred.';
       toast({
         variant: 'destructive',
-        title: 'Error Transcribing',
-        description: 'Could not transcribe audio.',
+        title: 'Transcription Failed',
+        description: description,
       });
     } finally {
       setLoading((prev) => ({ ...prev, isTranscribing: false }));
@@ -427,5 +428,3 @@ export default function VisAigePage() {
     </div>
   );
 }
-
-    
