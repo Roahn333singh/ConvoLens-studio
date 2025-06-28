@@ -388,7 +388,7 @@ export default function VisAigePage() {
                     <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => z + 0.1); }}>
                       <ZoomIn className="w-4 h-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(0.2, z - 0.1)); }}>
+                    <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(0.1, z - 0.1)); }}>
                       <ZoomOut className="w-4 h-4" />
                     </Button>
                     <Button variant="outline" size="icon" onClick={handleRefreshGraph} disabled={loading.isGeneratingGraph}>
@@ -401,7 +401,7 @@ export default function VisAigePage() {
               {isGraphExpanded &&
                 <CardContent>
                   <div className={cn(
-                    "w-full h-[500px] rounded-lg border bg-muted/30 overflow-hidden",
+                    "w-full h-[500px] rounded-lg border bg-muted/30",
                     !graphData && "flex items-center justify-center"
                     )}>
                     {loading.isGeneratingGraph ? (
@@ -410,11 +410,12 @@ export default function VisAigePage() {
                         <p className="font-headline">Generating graph...</p>
                       </div>
                     ) : graphData?.nodes && graphData.nodes.length > 0 ? (
-                      <ScrollArea className="w-full h-full">
-                        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }} className="w-full h-full transition-transform duration-300">
-                          <KnowledgeGraph nodes={graphData.nodes} relationships={graphData.relationships} />
-                        </div>
-                      </ScrollArea>
+                      <KnowledgeGraph 
+                        nodes={graphData.nodes} 
+                        relationships={graphData.relationships}
+                        zoom={zoom}
+                        setZoom={setZoom}
+                      />
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
                           <BrainCircuit className="w-16 h-16" />
