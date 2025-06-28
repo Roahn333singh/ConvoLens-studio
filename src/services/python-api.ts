@@ -2,15 +2,7 @@
 
 import type { GenerateGraphNetworkInput, GenerateGraphNetworkOutput } from "@/ai/flows/generate-graph-network";
 import type { QueryDataWithLLMInput, QueryDataWithLLMOutput } from "@/ai/flows/query-data-with-llm";
-import type { TranscribeAudioOutput } from "@/ai/flows/transcribe-audio";
-import {
-  log,
-  info,
-  debug,
-  warn,
-  error,
-  write,
-} from "firebase-functions/logger";
+import { info, error } from "firebase-functions/logger";
 
 
 /**
@@ -35,16 +27,19 @@ export async function callGraphApi(input: GenerateGraphNetworkInput): Promise<Ge
 
       if (!response.ok) {
           const errorText = await response.text().catch(() => 'Could not read error response.');
-          throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+          error(`[callGraphApi] API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+          throw new Error(`The graph API returned an error: ${response.statusText}. Please check the server logs.`);
       }
 
       const result: GenerateGraphNetworkOutput = await response.json();
       return result;
-  } catch (error) {
-      if (error instanceof TypeError && error.message === 'fetch failed') {
-          throw new Error(`Network error: Could not connect to the graph API at ${url}. Please ensure your Python server is running and accessible.`);
+  } catch (err) {
+      error(`[callGraphApi] Error calling ${url}:`, err);
+      if (err instanceof TypeError && err.message === 'fetch failed') {
+          throw new Error(`Network error: Could not connect to the graph API at ${url}. Please ensure the Python server is running.`);
       }
-      throw error;
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+      throw new Error(`Failed to call the graph API. Reason: ${errorMessage}`);
   }
 }
 
@@ -70,16 +65,19 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Could not read error response.');
-            throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+            error(`[callQueryApi] API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+            throw new Error(`The query API returned an error: ${response.statusText}. Please check the server logs.`);
         }
 
         const result: QueryDataWithLLMOutput = await response.json();
         return result;
-    } catch (error) {
-        if (error instanceof TypeError && error.message === 'fetch failed') {
-            throw new Error(`Network error: Could not connect to the query API at ${url}. Please ensure your Python server is running and accessible.`);
+    } catch (err) {
+        error(`[callQueryApi] Error calling ${url}:`, err);
+        if (err instanceof TypeError && err.message === 'fetch failed') {
+            throw new Error(`Network error: Could not connect to the query API at ${url}. Please ensure the Python server is running.`);
         }
-        throw error;
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+        throw new Error(`Failed to call the query API. Reason: ${errorMessage}`);
     }
 }
 
@@ -90,8 +88,9 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
  */
 export async function callTranscribeApi(input: { file: File }): Promise<{ transcript: string; structured: any }> {
   const url = process.env.TRANSCRIBE_API_URL;
-  log('url:', url);
-  if (!url) throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
+  if (!url) {
+    throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
+  }
 
   const formData = new FormData();
   formData.append('file', input.file);
@@ -104,22 +103,25 @@ export async function callTranscribeApi(input: { file: File }): Promise<{ transc
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Could not read error response.');
-      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
+      error(`[callTranscribeApi] API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`The transcribe API returned an error: ${response.statusText}. Please check the server logs.`);
     }
 
     const data = await response.json();
-    console.log('🐍 Python returned:', data);
+    info('[callTranscribeApi] Python returned:', data);
 
-    // ✅ assume your Python returns structured JSON like this
     const structured = data;
-
-    // ✅ you generate readable version from the content
     const transcript = structured?.root?.content
       ?.map((block: any) => `${block.actor}: ${block.dialogue}`)
       .join('\n') || '';
 
     return { transcript, structured };
-  } catch (error) {
-    throw error;
+  } catch (err) {
+    error(`[callTranscribeApi] Error calling ${url}:`, err);
+    if (err instanceof TypeError && err.message === 'fetch failed') {
+      throw new Error(`Network error: Could not connect to the transcribe API at ${url}. Please ensure the Python server is running.`);
+    }
+    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
+    throw new Error(`Failed to call the transcribe API. Reason: ${errorMessage}`);
   }
 }
