@@ -169,7 +169,9 @@ export default function VisAigePage() {
     try {
       const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
-      setIsGraphExpanded(true);
+      if (!isGraphExpanded) {
+        setIsGraphExpanded(true);
+      }
     } catch (error) {
       console.error(error);
       const description = error instanceof Error ? error.message : 'An unknown error occurred.';
@@ -401,8 +403,8 @@ export default function VisAigePage() {
               {isGraphExpanded &&
                 <CardContent>
                   <div className={cn(
-                    "w-full h-[500px] rounded-lg border bg-muted/30",
-                    !graphData && "flex items-center justify-center"
+                    "w-full h-[600px] rounded-lg border bg-muted/30 relative",
+                    !graphData?.nodes || graphData.nodes.length === 0 && "flex items-center justify-center"
                     )}>
                     {loading.isGeneratingGraph ? (
                       <div className="flex flex-col items-center justify-center w-full h-full gap-4 text-muted-foreground animate-pulse">
