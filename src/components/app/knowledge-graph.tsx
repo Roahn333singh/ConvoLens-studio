@@ -39,7 +39,7 @@ const NODE_HEIGHT = 60;
 const MAX_LABEL_LENGTH = 20;
 
 // Simulation parameters
-const REPULSION_STRENGTH = 12000;
+const REPULSION_STRENGTH = 18000;
 const LINK_DISTANCE = 280;
 const LINK_STRENGTH = 0.5;
 const CENTER_FORCE_STRENGTH = 0.03;
@@ -58,26 +58,26 @@ const NODE_COLORS = [
 ];
 
 function getIntersectionPoint(source: { x: number, y: number }, target: { x: number, y: number }, width: number, height: number) {
-    const w = width / 2;
-    const h = height / 2;
-    const dx = target.x - source.x;
-    const dy = target.y - source.y;
-    if (dx === 0 && dy === 0) return source;
+  const w = width / 2;
+  const h = height / 2;
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  if (dx === 0 && dy === 0) return source;
 
-    const tan_phi = h / w;
-    const tan_theta = Math.abs(dy / dx);
+  const tan_phi = h / w;
+  const tan_theta = Math.abs(dy / dx);
 
-    let x, y;
-    if (tan_theta < tan_phi) {
-        // Intersects left or right
-        x = dx > 0 ? w : -w;
-        y = dy * (x / dx);
-    } else {
-        // Intersects top or bottom
-        y = dy > 0 ? h : -h;
-        x = dx * (y / dy);
-    }
-    return { x: source.x + x, y: source.y + y };
+  let x, y;
+  if (tan_theta < tan_phi) {
+    // Intersects left or right
+    x = dx > 0 ? w : -w;
+    y = dy * (x / dx);
+  } else {
+    // Intersects top or bottom
+    y = dy > 0 ? h : -h;
+    x = dx * (y / dy);
+  }
+  return { x: source.x + x, y: source.y + y };
 }
 
 export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: KnowledgeGraphProps) {
@@ -98,7 +98,7 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
     });
     return typeColorMap;
   }, [nodes]);
-  
+
   const getNodeColor = useCallback((nodeType: string) => {
     return nodeTypeColors.get(nodeType) || 'hsl(var(--muted-foreground))';
   }, [nodeTypeColors]);
@@ -106,23 +106,23 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
   // Initialize node positions
   useEffect(() => {
     setNodePositions(currentPositions => {
-        const newPositions = new Map<string, NodePosition>();
-        const centerX = SVG_WIDTH / 2;
-        const centerY = SVG_HEIGHT / 2;
+      const newPositions = new Map<string, NodePosition>();
+      const centerX = SVG_WIDTH / 2;
+      const centerY = SVG_HEIGHT / 2;
 
-        nodes.forEach(node => {
-            const existing = currentPositions.get(node.id);
-            if (existing) {
-                newPositions.set(node.id, existing);
-            } else {
-                newPositions.set(node.id, {
-                    x: centerX + (Math.random() - 0.5) * 100,
-                    y: centerY + (Math.random() - 0.5) * 100,
-                    vx: 0, vy: 0, fx: 0, fy: 0
-                });
-            }
-        });
-        return newPositions;
+      nodes.forEach(node => {
+        const existing = currentPositions.get(node.id);
+        if (existing) {
+          newPositions.set(node.id, existing);
+        } else {
+          newPositions.set(node.id, {
+            x: centerX + (Math.random() - 0.5) * 100,
+            y: centerY + (Math.random() - 0.5) * 100,
+            vx: 0, vy: 0, fx: 0, fy: 0
+          });
+        }
+      });
+      return newPositions;
     });
   }, [nodes]);
 
@@ -158,10 +158,16 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
             const dy = nodeA.y - nodeB.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < 1) distance = 1;
-            
+
             const force = REPULSION_STRENGTH / (distance * distance);
-            const forceX = (dx / distance) * force;
-            const forceY = (dy / distance) * force;
+            const MAX_FORCE = 5;
+            const forceX = Math.max(Math.min((dx / distance) * force, MAX_FORCE), -MAX_FORCE);
+            const forceY = Math.max(Math.min((dy / distance) * force, MAX_FORCE), -MAX_FORCE);
+
+
+
+            // const forceX = (dx / distance) * force;
+            // const forceY = (dy / distance) * force;
 
             nodeA.fx += forceX;
             nodeA.fy += forceY;
@@ -169,6 +175,29 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
             nodeB.fy -= forceY;
           }
         }
+        // Collision detection to avoid overlapping
+        const MIN_DISTANCE = 100;
+        for (let i = 0; i < nodeIds.length; i++) {
+          const nodeA = newPositions.get(nodeIds[i])!;
+          for (let j = i + 1; j < nodeIds.length; j++) {
+            const nodeB = newPositions.get(nodeIds[j])!;
+            const dx = nodeA.x - nodeB.x;
+            const dy = nodeA.y - nodeB.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < MIN_DISTANCE && dist > 0) {
+              const overlap = (MIN_DISTANCE - dist) / 2;
+              const offsetX = (dx / dist) * overlap;
+              const offsetY = (dy / dist) * overlap;
+
+              nodeA.x += offsetX;
+              nodeA.y += offsetY;
+              nodeB.x -= offsetX;
+              nodeB.y -= offsetY;
+            }
+          }
+        }
+
 
         // Link force
         relationships.forEach(rel => {
@@ -215,18 +244,18 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
       }
     };
   }, [nodes, relationships, draggedNode]);
-  
+
   const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     setDraggedNode(nodeId);
     setNodePositions(currentPositions => {
-        const newPositions = new Map(currentPositions);
-        const node = newPositions.get(nodeId);
-        if(node) {
-            node.vx = 0;
-            node.vy = 0;
-        }
-        return newPositions;
+      const newPositions = new Map(currentPositions);
+      const node = newPositions.get(nodeId);
+      if (node) {
+        node.vx = 0;
+        node.vy = 0;
+      }
+      return newPositions;
     });
   };
 
@@ -240,27 +269,27 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     e.preventDefault();
     if (draggedNode && svgRef.current) {
-        const ctm = svgRef.current.getScreenCTM()?.inverse();
-        if(!ctm) return;
-        
-        const svgPoint = svgRef.current.createSVGPoint();
-        svgPoint.x = e.clientX;
-        svgPoint.y = e.clientY;
-        const {x, y} = svgPoint.matrixTransform(ctm);
-        const transformedX = (x - pan.x) / zoom;
-        const transformedY = (y - pan.y) / zoom;
+      const ctm = svgRef.current.getScreenCTM()?.inverse();
+      if (!ctm) return;
 
-        setNodePositions(currentPositions => {
-            const newPositions = new Map(currentPositions);
-            const node = newPositions.get(draggedNode);
-            if (node) {
-                node.x = transformedX;
-                node.y = transformedY;
-                node.vx = 0;
-                node.vy = 0;
-            }
-            return newPositions;
-        });
+      const svgPoint = svgRef.current.createSVGPoint();
+      svgPoint.x = e.clientX;
+      svgPoint.y = e.clientY;
+      const { x, y } = svgPoint.matrixTransform(ctm);
+      const transformedX = (x - pan.x) / zoom;
+      const transformedY = (y - pan.y) / zoom;
+
+      setNodePositions(currentPositions => {
+        const newPositions = new Map(currentPositions);
+        const node = newPositions.get(draggedNode);
+        if (node) {
+          node.x = transformedX;
+          node.y = transformedY;
+          node.vx = 0;
+          node.vy = 0;
+        }
+        return newPositions;
+      });
     } else if (isPanning) {
       setPan({
         x: e.clientX - startPan.x,
@@ -281,13 +310,13 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
 
     const scaleAmount = -e.deltaY * 0.001;
     const newZoom = Math.max(0.1, Math.min(5, zoom + scaleAmount));
-    
+
     const svgPoint = svgRef.current.createSVGPoint();
     svgPoint.x = e.clientX;
     svgPoint.y = e.clientY;
 
     const pointInSVG = svgPoint.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    
+
     setPan({
       x: pan.x - (pointInSVG.x - pan.x) * (newZoom / zoom - 1),
       y: pan.y - (pointInSVG.y - pan.y) * (newZoom / zoom - 1)
@@ -295,7 +324,7 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
 
     setZoom(newZoom);
   };
-  
+
   const connectedIds = useMemo(() => {
     if (!hoveredNode) return new Set<string>();
     const connected = new Set<string>([hoveredNode]);
@@ -311,7 +340,7 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
       const sourcePos = nodePositions.get(rel.source);
       const targetPos = nodePositions.get(rel.target);
       if (!sourcePos || !targetPos) return null;
-      
+
       const sourceIntersect = getIntersectionPoint(sourcePos, targetPos, NODE_WIDTH, NODE_HEIGHT);
       const targetIntersect = getIntersectionPoint(targetPos, sourcePos, NODE_WIDTH, NODE_HEIGHT);
 
@@ -326,9 +355,9 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
       };
     }).filter((edge): edge is NonNullable<typeof edge> => edge !== null);
   }, [relationships, nodePositions]);
-  
+
   const truncate = (str: string, n: number) => {
-    return (str.length > n) ? str.slice(0, n-1) + '…' : str;
+    return (str.length > n) ? str.slice(0, n - 1) + '…' : str;
   };
 
   if (nodes.length === 0) {
@@ -376,17 +405,20 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
                   strokeWidth={isHighlighted ? "2.5" : "1.5"}
                   markerEnd={isHighlighted ? "url(#arrowhead-highlight)" : "url(#arrowhead)"}
                 />
+
                 <text
                   x={edge.midX}
                   y={edge.midY}
-                  fontSize="12"
+                  fontSize={isHighlighted ? "14" : "12"}
+                  fontWeight={isHighlighted ? "bold" : "normal"}
                   fill={isHighlighted ? 'hsl(var(--primary))' : 'hsl(var(--accent-foreground))'}
                   textAnchor="middle"
                   dy="-6"
-                  className="font-sans font-medium"
+                  className="font-sans transition-all duration-200"
                 >
                   {edge.type}
                 </text>
+
               </g>
             )
           })}
@@ -394,17 +426,17 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
           {Array.from(nodePositions.entries()).map(([id, pos]) => {
             const node = nodes.find(n => n.id === id);
             if (!node) return null;
-            
+
             const isHighlighted = id === hoveredNode;
             const isDimmed = hoveredNode && !connectedIds.has(id);
             const nodeColor = getNodeColor(node.type);
 
             return (
-              <g key={`node-${id}`} transform={`translate(${pos.x - NODE_WIDTH / 2}, ${pos.y - NODE_HEIGHT / 2})`} 
-                 className="graph-node"
-                 onMouseDown={(e) => handleNodeMouseDown(e, id)}
-                 onMouseEnter={() => setHoveredNode(id)}
-                 onMouseLeave={() => setHoveredNode(null)}
+              <g key={`node-${id}`} transform={`translate(${pos.x - NODE_WIDTH / 2}, ${pos.y - NODE_HEIGHT / 2})`}
+                className="graph-node"
+                onMouseDown={(e) => handleNodeMouseDown(e, id)}
+                onMouseEnter={() => setHoveredNode(id)}
+                onMouseLeave={() => setHoveredNode(null)}
               >
                 <title>{node.id}\nType: {node.type}\nDetail: {node.detail}</title>
                 <rect
@@ -416,17 +448,17 @@ export default function KnowledgeGraph({ nodes, relationships, zoom, setZoom }: 
                   stroke={isHighlighted ? 'hsl(var(--ring))' : nodeColor}
                   strokeWidth={isHighlighted ? 3 : 1.5}
                   className={cn(
-                    "transition-all", 
+                    "transition-all",
                     isDimmed ? 'opacity-30' : 'opacity-90',
                     isHighlighted && 'opacity-100'
                   )}
                 />
-                 <foreignObject x="5" y="5" width={NODE_WIDTH - 10} height={NODE_HEIGHT - 10}>
-                   <div className="flex flex-col items-center justify-center h-full text-center pointer-events-none">
-                     <div className="font-bold text-sm" style={{ color: 'white' }}>{truncate(node.id, MAX_LABEL_LENGTH)}</div>
-                     <div className="text-xs" style={{ color: 'white', opacity: 0.8 }}>{node.type}</div>
-                   </div>
-                 </foreignObject>
+                <foreignObject x="5" y="5" width={NODE_WIDTH - 10} height={NODE_HEIGHT - 10}>
+                  <div className="flex flex-col items-center justify-center h-full text-center pointer-events-none">
+                    <div className="font-bold text-sm" style={{ color: 'white' }}>{truncate(node.id, MAX_LABEL_LENGTH)}</div>
+                    <div className="text-xs" style={{ color: 'white', opacity: 0.8 }}>{node.type}</div>
+                  </div>
+                </foreignObject>
               </g>
             );
           })}

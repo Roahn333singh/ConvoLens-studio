@@ -53,7 +53,6 @@ type LoadingStates = {
 export default function VisAigePage() {
   const { toast } = useToast();
   const [data, setData] = useState('');
-  const [model, setModel] = useState<'GPT' | 'LLaMA' | 'DeepSeek'>('GPT');
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState('');
   const [graphData, setGraphData] = useState<GenerateGraphNetworkOutput | null>(null);
@@ -306,20 +305,6 @@ export default function VisAigePage() {
                   </Tabs>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="llm-select">LLM Model</Label>
-                  <Select value={model} onValueChange={(value: 'GPT' | 'LLaMA' | 'DeepSeek') => setModel(value)}>
-                    <SelectTrigger id="llm-select">
-                      <SelectValue placeholder="Select a model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="GPT">GPT</SelectItem>
-                      <SelectItem value="LLaMA">LLaMA</SelectItem>
-                      <SelectItem value="DeepSeek">DeepSeek</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <Button onClick={handleGenerateGraph} disabled={loading.isGeneratingGraph}>
                   {loading.isGeneratingGraph && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Generate Graph
