@@ -1,30 +1,19 @@
 // src/ai/flows/generate-graph-network.ts
 'use server';
 
-/**
- * @fileOverview Generates a graph network visualization by calling a Python backend.
- *
- * - generateGraphNetwork - A function that generates a graph network visualization.
- * - GenerateGraphNetworkInput - The input type for the generateGraphNetwork function.
- * - GenerateGraphNetworkOutput - The return type for the generateGraphNetwork function.
- */
-
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-import {callGraphApi} from '@/services/python-api';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
+import { callGraphApi } from '@/services/python-api';
 
 const GenerateGraphNetworkInputSchema = z.object({
-  data: z.string().describe('The data to be used to generate the graph network.'),
-  modelType: z.enum(['GPT', 'LLaMA', 'DeepSeek']).default('GPT').describe('The type of the model to be used.'),
+  transcript: z.string().describe('The transcript to generate the graph from.'),
 });
 export type GenerateGraphNetworkInput = z.infer<typeof GenerateGraphNetworkInputSchema>;
 
 const GenerateGraphNetworkOutputSchema = z.object({
-  graphDataUri: z
-    .string()
-    .describe(
-      'The graph network visualization as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' 
-    ),
+  graphDataUri: z.string().describe(
+    'The graph network visualization as a data URI that must include a MIME type and use Base64 encoding.'
+  ),
 });
 export type GenerateGraphNetworkOutput = z.infer<typeof GenerateGraphNetworkOutputSchema>;
 
@@ -39,8 +28,7 @@ const generateGraphNetworkFlow = ai.defineFlow(
     outputSchema: GenerateGraphNetworkOutputSchema,
   },
   async input => {
-    // Instead of calling an LLM, we call the Python API service.
-    const response = await callGraphApi(input);
+    const response = await callGraphApi(input); // ✅ Sends { transcript }
     return response;
   }
 );

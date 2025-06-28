@@ -165,12 +165,13 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphImage('');
     try {
-      const result = await generateGraphNetwork({ data, modelType: model });
+      const result = await generateGraphNetwork({ transcript: data });
       setGraphImage(result.graphDataUri);
       setIsGraphExpanded(true);
     } catch (error) {
       console.error(error);
-      toast({ variant: "destructive", title: "Error Generating Graph", description: "An unexpected error occurred." });
+      const description = error instanceof Error ? error.message : 'An unknown error occurred.';
+      toast({ variant: "destructive", title: "Error Generating Graph", description: description });
     } finally {
       setLoading(prev => ({ ...prev, isGeneratingGraph: false }));
     }
@@ -205,7 +206,8 @@ export default function VisAigePage() {
     } catch (error)
       {
       console.error(error);
-      toast({ variant: "destructive", title: "Error Querying Data", description: "An unexpected error occurred." });
+      const description = error instanceof Error ? error.message : 'An unknown error occurred.';
+      toast({ variant: "destructive", title: "Error Querying Data", description: description });
     } finally {
       setLoading(prev => ({ ...prev, isQuerying: false }));
     }

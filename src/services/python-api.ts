@@ -3,6 +3,15 @@
 import type { GenerateGraphNetworkInput, GenerateGraphNetworkOutput } from "@/ai/flows/generate-graph-network";
 import type { QueryDataWithLLMInput, QueryDataWithLLMOutput } from "@/ai/flows/query-data-with-llm";
 import type { TranscribeAudioOutput } from "@/ai/flows/transcribe-audio";
+import {
+  log,
+  info,
+  debug,
+  warn,
+  error,
+  write,
+} from "firebase-functions/logger";
+
 
 /**
  * Calls the Python API to generate a graph network.
@@ -79,12 +88,10 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
  * @param input The audio data as a File object.
  * @returns The transcript from the API.
  */
-export async function callTranscribeApi(input: { file: File }): Promise<TranscribeAudioOutput> {
+export async function callTranscribeApi(input: { file: File }): Promise<{ transcript: string; structured: any }> {
   const url = process.env.TRANSCRIBE_API_URL;
-  if (!url) {
-    console.error("❌ TRANSCRIBE_API_URL is undefined. Check your .env file.");
-    throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
-  }
+  log('url:', url);
+  if (!url) throw new Error("TRANSCRIBE_API_URL environment variable is not set.");
 
   const formData = new FormData();
   formData.append('file', input.file);
@@ -97,15 +104,22 @@ export async function callTranscribeApi(input: { file: File }): Promise<Transcri
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Could not read error response.');
-      throw new Error(`API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
+      throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const result: TranscribeAudioOutput = await response.json();
-    return result;
+    const data = await response.json();
+    console.log('🐍 Python returned:', data);
+
+    // ✅ assume your Python returns structured JSON like this
+    const structured = data;
+
+    // ✅ you generate readable version from the content
+    const transcript = structured?.root?.content
+      ?.map((block: any) => `${block.actor}: ${block.dialogue}`)
+      .join('\n') || '';
+
+    return { transcript, structured };
   } catch (error) {
-    if (error instanceof TypeError && error.message === 'fetch failed') {
-      throw new Error(`Network error: Could not connect to the transcribe API at ${url}. Please ensure your Python server is running and accessible.`);
-    }
     throw error;
   }
 }
