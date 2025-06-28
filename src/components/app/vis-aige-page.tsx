@@ -240,7 +240,7 @@ export default function VisAigePage() {
                     </TabsList>
                     <TabsContent value="text" className="mt-4">
                       <Textarea
-                        placeholder="Paste your text or JSON data here..."
+                        placeholder="Transcripted Output here ......"
                         className="min-h-[150px]"
                         value={data}
                         onChange={(e) => setData(e.target.value)}
@@ -407,6 +407,7 @@ export default function VisAigePage() {
                           <img
                               src={graphImage}
                               alt="Generated Graph Network"
+                              data-ai-hint="network graph"
                               className="transition-transform duration-300"
                               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                           />

@@ -29,6 +29,32 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
   return transcribeAudioFlow(input);
 }
 
+// const transcribeAudioFlow = ai.defineFlow(
+//   {
+//     name: 'transcribeAudioFlow',
+//     inputSchema: TranscribeAudioInputSchema,
+//     outputSchema: TranscribeAudioOutputSchema,
+//   },
+//   async input => {
+//     // Instead of calling an LLM, we call the Python API service.
+//     const response = await callTranscribeApi(input);
+//     return response;
+//   }
+// );
+function dataURItoBlob(dataURI: string): Blob {
+  const [header, base64] = dataURI.split(',');
+  const mimeMatch = header.match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+
+  const binary = atob(base64);
+  const array = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    array[i] = binary.charCodeAt(i);
+  }
+
+  return new Blob([array], { type: mime });
+}
+
 const transcribeAudioFlow = ai.defineFlow(
   {
     name: 'transcribeAudioFlow',
@@ -36,8 +62,16 @@ const transcribeAudioFlow = ai.defineFlow(
     outputSchema: TranscribeAudioOutputSchema,
   },
   async input => {
-    // Instead of calling an LLM, we call the Python API service.
-    const response = await callTranscribeApi(input);
+    // Step 1: Convert data URI to Blob
+    const blob = dataURItoBlob(input.audioDataUri);
+
+    // Optional: wrap Blob as a File if needed
+    const file = new File([blob], "recording.wav", { type: blob.type });
+
+    // Step 2: Call the backend API with file
+    const response = await callTranscribeApi({ file });
+
     return response;
   }
 );
+
