@@ -41,6 +41,7 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import KnowledgeGraph from './knowledge-graph';
 
 
 type LoadingStates = {
@@ -408,12 +409,10 @@ export default function VisAigePage() {
                         <BrainCircuit className="w-16 h-16" />
                         <p className="font-headline">Generating graph...</p>
                       </div>
-                    ) : graphData ? (
+                    ) : graphData?.nodes && graphData.nodes.length > 0 ? (
                       <ScrollArea className="w-full h-full">
-                        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }} className="p-4 transition-transform duration-300">
-                          <pre className="text-sm">
-                            {JSON.stringify(graphData, null, 2)}
-                          </pre>
+                        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }} className="w-full h-full transition-transform duration-300">
+                          <KnowledgeGraph nodes={graphData.nodes} relationships={graphData.relationships} />
                         </div>
                       </ScrollArea>
                     ) : (
