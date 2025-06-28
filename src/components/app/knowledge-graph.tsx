@@ -39,11 +39,11 @@ const NODE_HEIGHT = 55;
 const MAX_LABEL_LENGTH = 18;
 
 // Simulation parameters
-const REPULSION_STRENGTH = 6000;
-const LINK_DISTANCE = 200;
-const LINK_STRENGTH = 0.8;
+const REPULSION_STRENGTH = 9000;
+const LINK_DISTANCE = 240;
+const LINK_STRENGTH = 0.6;
 const CENTER_FORCE_STRENGTH = 0.03;
-const DAMPING = 0.9;
+const DAMPING = 0.8;
 
 
 // Color palette for node types
