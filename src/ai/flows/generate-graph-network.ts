@@ -1,4 +1,3 @@
-// src/ai/flows/generate-graph-network.ts
 'use server';
 
 import { ai } from '@/ai/genkit';
@@ -10,12 +9,24 @@ const GenerateGraphNetworkInputSchema = z.object({
 });
 export type GenerateGraphNetworkInput = z.infer<typeof GenerateGraphNetworkInputSchema>;
 
+const NodeSchema = z.object({
+  id: z.string(),
+  detail: z.string(),
+  type: z.string(),
+});
+
+const RelationshipSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  type: z.string(),
+});
+
 const GenerateGraphNetworkOutputSchema = z.object({
-  graphDataUri: z.string().describe(
-    'The graph network visualization as a data URI that must include a MIME type and use Base64 encoding.'
-  ),
+  nodes: z.array(NodeSchema).describe("List of nodes in the graph."),
+  relationships: z.array(RelationshipSchema).describe("List of relationships between nodes."),
 });
 export type GenerateGraphNetworkOutput = z.infer<typeof GenerateGraphNetworkOutputSchema>;
+
 
 export async function generateGraphNetwork(input: GenerateGraphNetworkInput): Promise<GenerateGraphNetworkOutput> {
   return generateGraphNetworkFlow(input);
@@ -28,7 +39,7 @@ const generateGraphNetworkFlow = ai.defineFlow(
     outputSchema: GenerateGraphNetworkOutputSchema,
   },
   async input => {
-    const response = await callGraphApi(input); // ✅ Sends { transcript }
+    const response = await callGraphApi(input);
     return response;
   }
 );

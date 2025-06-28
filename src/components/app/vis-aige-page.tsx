@@ -35,11 +35,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { generateGraphNetwork } from '@/ai/flows/generate-graph-network';
+import { generateGraphNetwork, type GenerateGraphNetworkOutput } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 
 type LoadingStates = {
@@ -54,7 +55,7 @@ export default function VisAigePage() {
   const [model, setModel] = useState<'GPT' | 'LLaMA' | 'DeepSeek'>('GPT');
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState('');
-  const [graphImage, setGraphImage] = useState('');
+  const [graphData, setGraphData] = useState<GenerateGraphNetworkOutput | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const [loading, setLoading] = useState<LoadingStates>({
@@ -163,10 +164,10 @@ export default function VisAigePage() {
       return;
     }
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
-    setGraphImage('');
+    setGraphData(null);
     try {
       const result = await generateGraphNetwork({ transcript: data });
-      setGraphImage(result.graphDataUri);
+      setGraphData(result);
       setIsGraphExpanded(true);
     } catch (error) {
       console.error(error);
@@ -380,7 +381,7 @@ export default function VisAigePage() {
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
                     <CardTitle className="font-headline">Graph Visualization</CardTitle>
-                    <CardDescription>Network generated from your data. Click to expand.</CardDescription>
+                    <CardDescription>Network data from your API. Click to expand.</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => z + 0.1); }}>
@@ -398,22 +399,23 @@ export default function VisAigePage() {
               </CardHeader>
               {isGraphExpanded &&
                 <CardContent>
-                  <div className="w-full h-[500px] rounded-lg border bg-muted/30 flex items-center justify-center overflow-auto">
+                  <div className={cn(
+                    "w-full h-[500px] rounded-lg border bg-muted/30 overflow-hidden",
+                    !graphData && "flex items-center justify-center"
+                    )}>
                     {loading.isGeneratingGraph ? (
-                      <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
+                      <div className="flex flex-col items-center justify-center w-full h-full gap-4 text-muted-foreground animate-pulse">
                         <BrainCircuit className="w-16 h-16" />
                         <p className="font-headline">Generating graph...</p>
                       </div>
-                    ) : graphImage ? (
-                      <div className="w-full h-full p-4 overflow-auto">
-                          <img
-                              src={graphImage}
-                              alt="Generated Graph Network"
-                              data-ai-hint="network graph"
-                              className="transition-transform duration-300"
-                              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-                          />
-                      </div>
+                    ) : graphData ? (
+                      <ScrollArea className="w-full h-full">
+                        <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }} className="p-4 transition-transform duration-300">
+                          <pre className="text-sm">
+                            {JSON.stringify(graphData, null, 2)}
+                          </pre>
+                        </div>
+                      </ScrollArea>
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-center text-muted-foreground p-8">
                           <BrainCircuit className="w-16 h-16" />
