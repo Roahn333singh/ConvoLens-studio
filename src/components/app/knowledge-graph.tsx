@@ -34,14 +34,14 @@ type NodePosition = {
 
 const SVG_WIDTH = 800;
 const SVG_HEIGHT = 600;
-const NODE_WIDTH = 130;
-const NODE_HEIGHT = 55;
-const MAX_LABEL_LENGTH = 18;
+const NODE_WIDTH = 140;
+const NODE_HEIGHT = 60;
+const MAX_LABEL_LENGTH = 20;
 
 // Simulation parameters
-const REPULSION_STRENGTH = 9000;
-const LINK_DISTANCE = 240;
-const LINK_STRENGTH = 0.6;
+const REPULSION_STRENGTH = 12000;
+const LINK_DISTANCE = 280;
+const LINK_STRENGTH = 0.5;
 const CENTER_FORCE_STRENGTH = 0.03;
 const DAMPING = 0.8;
 
