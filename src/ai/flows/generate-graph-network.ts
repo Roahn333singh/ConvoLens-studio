@@ -1,8 +1,13 @@
 'use server';
-
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-import { callGraphApi } from '@/services/python-api';
+/**
+ * @fileOverview A flow for generating a graph network from a transcript.
+ *
+ * - generateGraphNetwork - A function that takes a transcript and returns nodes and relationships.
+ * - GenerateGraphNetworkInput - The input type for the generateGraphNetwork function.
+ * - GenerateGraphNetworkOutput - The return type for the generateGraphNetwork function.
+ */
+import {ai} from '@/ai/genkit';
+import {z} from 'genkit';
 
 const GenerateGraphNetworkInputSchema = z.object({
   transcript: z.string().describe('The transcript to generate the graph from.'),
@@ -27,10 +32,27 @@ const GenerateGraphNetworkOutputSchema = z.object({
 });
 export type GenerateGraphNetworkOutput = z.infer<typeof GenerateGraphNetworkOutputSchema>;
 
-
 export async function generateGraphNetwork(input: GenerateGraphNetworkInput): Promise<GenerateGraphNetworkOutput> {
+  console.log('Data being sent to generate graph API:', JSON.stringify(input, null, 2));
   return generateGraphNetworkFlow(input);
 }
+
+const prompt = ai.definePrompt({
+  name: 'generateGraphNetworkPrompt',
+  input: {schema: GenerateGraphNetworkInputSchema},
+  output: {schema: GenerateGraphNetworkOutputSchema},
+  prompt: `From the transcript below, extract the key entities (nodes) and their relationships.
+  Identify entities such as people, places, organizations, and key concepts.
+  The 'id' should be a concise, unique identifier for the node.
+  The 'type' should be a single-word category (e.g., Person, Location, Organization, Concept, Weapon, Vehicle).
+  The 'detail' can be a brief description if necessary, otherwise leave it empty.
+  For relationships, the 'type' should describe the connection (e.g., MENTIONS, OBSERVES, IS_A, PART_OF).
+
+  Transcript:
+  {{{transcript}}}
+  `,
+});
+
 
 const generateGraphNetworkFlow = ai.defineFlow(
   {
@@ -39,7 +61,7 @@ const generateGraphNetworkFlow = ai.defineFlow(
     outputSchema: GenerateGraphNetworkOutputSchema,
   },
   async input => {
-    const response = await callGraphApi(input);
-    return response;
+    const {output} = await prompt(input);
+    return output!;
   }
 );
