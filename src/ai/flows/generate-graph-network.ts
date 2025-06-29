@@ -33,7 +33,6 @@ const GenerateGraphNetworkOutputSchema = z.object({
 export type GenerateGraphNetworkOutput = z.infer<typeof GenerateGraphNetworkOutputSchema>;
 
 export async function generateGraphNetwork(input: GenerateGraphNetworkInput): Promise<GenerateGraphNetworkOutput> {
-  console.log('Data being sent to generate graph API:', JSON.stringify(input, null, 2));
   return generateGraphNetworkFlow(input);
 }
 
