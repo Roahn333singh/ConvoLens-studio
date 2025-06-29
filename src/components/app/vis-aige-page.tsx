@@ -83,6 +83,12 @@ export default function VisAigePage() {
     const file = event.target.files?.[0];
     if (file) {
       setLoading(prev => ({ ...prev, isUploading: true }));
+      // Aggressively reset state on new data introduction
+      setAnswer('');
+      setQuery('');
+      setAudioFile(null);
+      setAudioDataUri(null);
+
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
@@ -156,6 +162,10 @@ export default function VisAigePage() {
       return;
     }
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
+    // Aggressively reset state on new data introduction
+    setAnswer('');
+    setQuery('');
+
     try {
       const result = await transcribeAudio({ audioDataUri });
       setData(result.transcript);
