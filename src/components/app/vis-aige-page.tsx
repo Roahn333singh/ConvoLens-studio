@@ -24,20 +24,12 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork, type GenerateGraphNetworkOutput } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
-import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -50,7 +42,6 @@ type LoadingStates = {
   isQuerying: boolean;
   isTranscribing: boolean;
   isUploading: boolean;
-  isSummarizing: boolean;
 };
 
 export default function VisAigePage() {
@@ -66,7 +57,6 @@ export default function VisAigePage() {
     isQuerying: false,
     isTranscribing: false,
     isUploading: false,
-    isSummarizing: false,
   });
 
   const [activeTab, setActiveTab] = useState('text');
@@ -76,10 +66,6 @@ export default function VisAigePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
   
-  // Use a ref to store the full data to avoid state-related race conditions in async operations.
-  const fullDataRef = useRef<string>('');
-
-
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -88,45 +74,19 @@ export default function VisAigePage() {
       reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
-          fullDataRef.current = text; // Store the full content
-  
-          if (file.type === 'application/json') {
-            // For JSON, we summarize it for display but use the full content for processing
-            setLoading(prev => ({ ...prev, isSummarizing: true }));
-            summarizeUploadedData({ data: text })
-              .then(summaryResult => {
-                setData(summaryResult.summary); // Display summary
-                toast({
-                  title: "JSON File Processed",
-                  description: "Summary is displayed. You can now query the full data or generate a graph.",
-                });
-              })
-              .catch(error => {
-                console.error(error);
-                const description = error instanceof Error ? error.message : 'An unknown error occurred.';
-                toast({ variant: "destructive", title: "Summarization Failed", description });
-                setData(text); // Fallback to showing full text on error
-              })
-              .finally(() => {
-                setLoading(prev => ({ ...prev, isSummarizing: false, isUploading: false }));
-              });
-          } else {
-            // For other file types, just display the content
-            setData(text);
-            toast({
-              title: "File Loaded",
-              description: `${file.name} has been loaded. You can now query it or generate a graph.`,
-            });
-            setLoading(prev => ({ ...prev, isUploading: false }));
-          }
+          setData(text); // Set the single source of truth
+          toast({
+            title: "File Loaded",
+            description: `${file.name} has been loaded. You can now query it or generate a graph.`,
+          });
         } catch (error) {
             const description = error instanceof Error ? error.message : 'An unknown error occurred.';
             toast({ variant: "destructive", title: "File Error", description });
-            setLoading(prev => ({ ...prev, isUploading: false }));
         } finally {
             if (event.target) {
               event.target.value = '';
             }
+            setLoading(prev => ({ ...prev, isUploading: false }));
         }
       };
       reader.onerror = () => {
@@ -185,9 +145,7 @@ export default function VisAigePage() {
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
     try {
       const result = await transcribeAudio({ audioDataUri });
-      // When audio is transcribed, the result becomes the primary data source
-      setData(result.transcript);
-      fullDataRef.current = result.transcript;
+      setData(result.transcript); // Set the single source of truth
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -208,16 +166,15 @@ export default function VisAigePage() {
   };
 
   const handleGenerateGraph = async () => {
-    // Use the original full data for graph generation
-    const dataToGraph = fullDataRef.current;
-    if (!dataToGraph) {
+    if (!data) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data to generate a graph." });
       return;
     }
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
-      const result = await generateGraphNetwork({ transcript: dataToGraph });
+      console.log('Data sent to generateGraph:', data);
+      const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
       if (!isGraphExpanded) {
         setIsGraphExpanded(true);
@@ -233,8 +190,7 @@ export default function VisAigePage() {
   
   const handleRefreshGraph = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const dataToGraph = fullDataRef.current;
-    if (dataToGraph) {
+    if (data) {
         handleGenerateGraph();
     } else {
         toast({
@@ -245,9 +201,7 @@ export default function VisAigePage() {
   };
 
   const handleQuery = async () => {
-    // Use the original full data for the query
-    const dataToQuery = fullDataRef.current;
-    if (!dataToQuery) {
+    if (!data) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data before querying." });
       return;
     }
@@ -258,7 +212,7 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isQuerying: true }));
     setAnswer('');
     try {
-      const result = await queryDataWithLLM({ data: dataToQuery, query });
+      const result = await queryDataWithLLM({ data, query });
       setAnswer(result.answer);
     } catch (error)
       {
@@ -302,10 +256,7 @@ export default function VisAigePage() {
                         placeholder="Paste text, upload a file, or transcribe audio..."
                         className="min-h-[150px]"
                         value={data}
-                        onChange={(e) => {
-                          setData(e.target.value);
-                          fullDataRef.current = e.target.value;
-                        }}
+                        onChange={(e) => setData(e.target.value)}
                       />
                     </TabsContent>
                     <TabsContent value="upload" className="mt-4">
@@ -317,13 +268,13 @@ export default function VisAigePage() {
                           className="hidden"
                           accept=".txt,.json"
                       />
-                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isUploading || loading.isSummarizing}>
-                        {(loading.isUploading || loading.isSummarizing) ? (
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isUploading}>
+                        {loading.isUploading ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
                         ) : (
                           <Upload className="w-4 h-4 mr-2"/>
                         )}
-                        {loading.isUploading ? 'Loading...' : (loading.isSummarizing ? 'Processing...' : 'Upload .txt or .json')}
+                        {loading.isUploading ? 'Loading...' : 'Upload .txt or .json'}
                       </Button>
                     </TabsContent>
                     <TabsContent value="audio" className="mt-4">
