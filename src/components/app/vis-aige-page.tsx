@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork, type GenerateGraphNetworkOutput } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
+import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -48,11 +49,13 @@ type LoadingStates = {
   isGeneratingGraph: boolean;
   isQuerying: boolean;
   isTranscribing: boolean;
+  isSummarizing: boolean;
 };
 
 export default function VisAigePage() {
   const { toast } = useToast();
   const [data, setData] = useState('');
+  const [originalData, setOriginalData] = useState('');
   const [query, setQuery] = useState('');
   const [answer, setAnswer] = useState('');
   const [graphData, setGraphData] = useState<GenerateGraphNetworkOutput | null>(null);
@@ -62,6 +65,7 @@ export default function VisAigePage() {
     isGeneratingGraph: false,
     isQuerying: false,
     isTranscribing: false,
+    isSummarizing: false,
   });
 
   const [activeTab, setActiveTab] = useState('text');
@@ -75,13 +79,38 @@ export default function VisAigePage() {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const text = e.target?.result as string;
         setData(text);
-        toast({
-          title: "File Loaded",
-          description: `${file.name} has been loaded successfully.`,
-        });
+        setOriginalData(text);
+
+        if (file.type === 'application/json') {
+          setLoading((prev) => ({ ...prev, isSummarizing: true }));
+          try {
+            const result = await summarizeUploadedData({ data: text });
+            setData(result.summary);
+            toast({
+              title: "JSON File Processed",
+              description: `A summary for ${file.name} has been generated. You can now query the full content.`,
+            });
+          } catch (error) {
+            console.error(error);
+            const description = error instanceof Error ? error.message : 'An unknown error occurred.';
+            toast({
+              variant: "destructive",
+              title: "Summarization Failed",
+              description,
+            });
+            setData(text);
+          } finally {
+            setLoading((prev) => ({ ...prev, isSummarizing: false }));
+          }
+        } else {
+            toast({
+              title: "File Loaded",
+              description: `${file.name} has been loaded successfully.`,
+            });
+        }
       };
       reader.onerror = () => {
         toast({
@@ -139,6 +168,7 @@ export default function VisAigePage() {
     try {
       const result = await transcribeAudio({ audioDataUri });
       setData(result.transcript);
+      setOriginalData('');
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -159,14 +189,15 @@ export default function VisAigePage() {
   };
 
   const handleGenerateGraph = async () => {
-    if (!data) {
+    const dataToGraph = originalData || data;
+    if (!dataToGraph) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data to generate a graph." });
       return;
     }
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
-      const result = await generateGraphNetwork({ transcript: data });
+      const result = await generateGraphNetwork({ transcript: dataToGraph });
       setGraphData(result);
       if (!isGraphExpanded) {
         setIsGraphExpanded(true);
@@ -182,7 +213,8 @@ export default function VisAigePage() {
   
   const handleRefreshGraph = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (data) {
+    const dataToGraph = originalData || data;
+    if (dataToGraph) {
         handleGenerateGraph();
     } else {
         toast({
@@ -193,7 +225,8 @@ export default function VisAigePage() {
   };
 
   const handleQuery = async () => {
-    if (!data) {
+    const dataToQuery = originalData || data;
+    if (!dataToQuery) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data before querying." });
       return;
     }
@@ -204,7 +237,7 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isQuerying: true }));
     setAnswer('');
     try {
-      const result = await queryDataWithLLM({ data, query });
+      const result = await queryDataWithLLM({ data: dataToQuery, query });
       setAnswer(result.answer);
     } catch (error)
       {
@@ -248,7 +281,10 @@ export default function VisAigePage() {
                         placeholder="Transcripted Output here ......"
                         className="min-h-[150px]"
                         value={data}
-                        onChange={(e) => setData(e.target.value)}
+                        onChange={(e) => {
+                          setData(e.target.value);
+                          setOriginalData('');
+                        }}
                       />
                     </TabsContent>
                     <TabsContent value="upload" className="mt-4">
@@ -260,9 +296,13 @@ export default function VisAigePage() {
                           className="hidden"
                           accept=".txt,.json"
                       />
-                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isSummarizing}>
+                        {loading.isSummarizing ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+                        ) : (
                           <Upload className="w-4 h-4 mr-2"/>
-                          Upload a .txt or .json file
+                        )}
+                        {loading.isSummarizing ? 'Processing JSON...' : 'Upload a .txt or .json file'}
                       </Button>
                     </TabsContent>
                     <TabsContent value="audio" className="mt-4">
