@@ -38,7 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork, type GenerateGraphNetworkOutput } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
-import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -49,7 +48,7 @@ type LoadingStates = {
   isGeneratingGraph: boolean;
   isQuerying: boolean;
   isTranscribing: boolean;
-  isSummarizing: boolean;
+  isUploading: boolean;
 };
 
 export default function VisAigePage() {
@@ -65,7 +64,7 @@ export default function VisAigePage() {
     isGeneratingGraph: false,
     isQuerying: false,
     isTranscribing: false,
-    isSummarizing: false,
+    isUploading: false,
   });
 
   const [activeTab, setActiveTab] = useState('text');
@@ -78,38 +77,21 @@ export default function VisAigePage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      setLoading(prev => ({ ...prev, isUploading: true }));
       const reader = new FileReader();
-      reader.onload = async (e) => {
+      reader.onload = (e) => {
         const text = e.target?.result as string;
+        // Load content into the textarea and also save it to originalData for processing
         setData(text);
         setOriginalData(text);
-
-        if (file.type === 'application/json') {
-          setLoading((prev) => ({ ...prev, isSummarizing: true }));
-          try {
-            const result = await summarizeUploadedData({ data: text });
-            setData(result.summary);
-            toast({
-              title: "JSON File Processed",
-              description: `A summary for ${file.name} has been generated. You can now query the full content.`,
-            });
-          } catch (error) {
-            console.error(error);
-            const description = error instanceof Error ? error.message : 'An unknown error occurred.';
-            toast({
-              variant: "destructive",
-              title: "Summarization Failed",
-              description,
-            });
-            setData(text);
-          } finally {
-            setLoading((prev) => ({ ...prev, isSummarizing: false }));
-          }
-        } else {
-            toast({
-              title: "File Loaded",
-              description: `${file.name} has been loaded successfully.`,
-            });
+        toast({
+          title: "File Loaded",
+          description: `${file.name} has been loaded. You can now query it or generate a graph.`,
+        });
+        setLoading(prev => ({ ...prev, isUploading: false }));
+        // Reset file input to allow uploading the same file again
+        if (event.target) {
+            event.target.value = '';
         }
       };
       reader.onerror = () => {
@@ -118,6 +100,7 @@ export default function VisAigePage() {
             title: "File Error",
             description: "There was an error reading the file.",
         });
+        setLoading(prev => ({ ...prev, isUploading: false }));
       }
       reader.readAsText(file);
     }
@@ -167,8 +150,9 @@ export default function VisAigePage() {
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
     try {
       const result = await transcribeAudio({ audioDataUri });
+      // When audio is transcribed, the result becomes the primary data source
       setData(result.transcript);
-      setOriginalData('');
+      setOriginalData(result.transcript);
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -189,6 +173,7 @@ export default function VisAigePage() {
   };
 
   const handleGenerateGraph = async () => {
+    // Use the original full data for graph generation
     const dataToGraph = originalData || data;
     if (!dataToGraph) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data to generate a graph." });
@@ -225,6 +210,7 @@ export default function VisAigePage() {
   };
 
   const handleQuery = async () => {
+    // Use the original full data for the query
     const dataToQuery = originalData || data;
     if (!dataToQuery) {
       toast({ variant: "destructive", title: "No Data", description: "Please input data before querying." });
@@ -265,7 +251,7 @@ export default function VisAigePage() {
             <Card className="shadow-md">
               <CardHeader>
                 <CardTitle className="font-headline">Controls</CardTitle>
-                <CardDescription>Input data, select a model, and ask a question.</CardDescription>
+                <CardDescription>Input data and ask a question.</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div className="space-y-2">
@@ -278,12 +264,12 @@ export default function VisAigePage() {
                     </TabsList>
                     <TabsContent value="text" className="mt-4">
                       <Textarea
-                        placeholder="Transcripted Output here ......"
+                        placeholder="Paste text, upload a file, or transcribe audio..."
                         className="min-h-[150px]"
                         value={data}
                         onChange={(e) => {
                           setData(e.target.value);
-                          setOriginalData('');
+                          setOriginalData(e.target.value);
                         }}
                       />
                     </TabsContent>
@@ -296,13 +282,13 @@ export default function VisAigePage() {
                           className="hidden"
                           accept=".txt,.json"
                       />
-                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isSummarizing}>
-                        {loading.isSummarizing ? (
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isUploading}>
+                        {loading.isUploading ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
                         ) : (
                           <Upload className="w-4 h-4 mr-2"/>
                         )}
-                        {loading.isSummarizing ? 'Processing JSON...' : 'Upload a .txt or .json file'}
+                        {loading.isUploading ? 'Loading File...' : 'Upload a .txt or .json file'}
                       </Button>
                     </TabsContent>
                     <TabsContent value="audio" className="mt-4">
@@ -460,3 +446,5 @@ export default function VisAigePage() {
     </div>
   );
 }
+
+    
