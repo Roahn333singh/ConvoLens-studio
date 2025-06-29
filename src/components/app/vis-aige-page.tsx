@@ -65,6 +65,19 @@ export default function VisAigePage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+    // Reset states to avoid using stale data from other tabs
+    setData('');
+    setQuery('');
+    setAnswer('');
+    setAudioFile(null);
+    setAudioDataUri(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (audioFileInputRef.current) audioFileInputRef.current.value = '';
+    // We don't reset graphData so the user can still see the last generated graph
+  };
   
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -74,7 +87,7 @@ export default function VisAigePage() {
       reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
-          setData(text); // Set the single source of truth
+          setData(text);
           toast({
             title: "File Loaded",
             description: `${file.name} has been loaded. You can now query it or generate a graph.`,
@@ -145,7 +158,7 @@ export default function VisAigePage() {
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
     try {
       const result = await transcribeAudio({ audioDataUri });
-      setData(result.transcript); // Set the single source of truth
+      setData(result.transcript);
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -173,7 +186,6 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
-      console.log('Data sent to generateGraph:', data);
       const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
       if (!isGraphExpanded) {
@@ -245,7 +257,7 @@ export default function VisAigePage() {
               <CardContent className="flex flex-col gap-4">
                 <div className="space-y-2">
                   <Label>Data Input</Label>
-                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <Tabs value={activeTab} onValueChange={handleTabChange}>
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
                       <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
@@ -317,7 +329,7 @@ export default function VisAigePage() {
                   </Tabs>
                 </div>
                 
-                <Button onClick={handleGenerateGraph} disabled={loading.isGeneratingGraph}>
+                <Button onClick={handleGenerateGraph} disabled={loading.isGeneratingGraph || !data}>
                   {loading.isGeneratingGraph && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Generate Graph
                 </Button>
@@ -340,7 +352,7 @@ export default function VisAigePage() {
                         className="min-h-[120px]"
                     />
                 </div>
-                <Button onClick={handleQuery} disabled={loading.isQuerying} className="w-full">
+                <Button onClick={handleQuery} disabled={loading.isQuerying || !data} className="w-full">
                     {loading.isQuerying ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (

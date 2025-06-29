@@ -2,6 +2,7 @@
 
 import type { GenerateGraphNetworkInput, GenerateGraphNetworkOutput } from "@/ai/flows/generate-graph-network";
 import type { QueryDataWithLLMInput, QueryDataWithLLMOutput } from "@/ai/flows/query-data-with-llm";
+import type { TranscribeAudioOutput } from "@/ai/flows/transcribe-audio";
 import { info, error } from "firebase-functions/logger";
 
 // A helper function to create a standardized error response
@@ -94,7 +95,7 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
  * @param input The audio data as a File object.
  * @returns The transcript from the API.
  */
-export async function callTranscribeApi(input: { file: File }): Promise<{ transcript: string; structured: any }> {
+export async function callTranscribeApi(input: { file: File }): Promise<TranscribeAudioOutput> {
   const url = process.env.TRANSCRIBE_API_URL;
   if (!url) {
     throw createApiError('Transcribe API', new Error("TRANSCRIBE_API_URL environment variable is not set."));
@@ -120,13 +121,12 @@ export async function callTranscribeApi(input: { file: File }): Promise<{ transc
     const data = await response.json();
     info('[callTranscribeApi] Successfully received data from Python API.');
 
-    const structured = data;
     // This logic relies on the python API returning a specific format.
-    const transcript = structured?.root?.content
+    const transcript = data?.root?.content
       ?.map((block: any) => `${block.actor}: ${block.dialogue}`)
       .join('\n') || '';
 
-    return { transcript, structured };
+    return { transcript };
   } catch (err) {
       throw createApiError('Transcribe API', err, url);
   }

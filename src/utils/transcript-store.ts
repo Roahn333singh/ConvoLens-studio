@@ -1,11 +1,1 @@
-// src/utils/transcript-store.ts
-
-let structuredTranscript: any = null;
-
-export function saveStructuredTranscript(data: any) {
-  structuredTranscript = data;
-}
-
-export function getStructuredTranscript() {
-  return structuredTranscript;
-}
+// This file has been disabled to prevent state management issues.

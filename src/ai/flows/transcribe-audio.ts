@@ -7,7 +7,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { callTranscribeApi } from '@/services/python-api';
-import { saveStructuredTranscript } from '@/utils/transcript-store'; // ✅ import this
 
 const TranscribeAudioInputSchema = z.object({
   audioDataUri: z
@@ -20,19 +19,6 @@ const TranscribeAudioOutputSchema = z.object({
   transcript: z.string().describe('The transcribed text from the audio.'),
 });
 export type TranscribeAudioOutput = z.infer<typeof TranscribeAudioOutputSchema>;
-
-// 👇 Add this type for internal response (not exposed to UI)
-type FullTranscriptionResponse = {
-  transcript: string;
-  structured: {
-    root: {
-      content: {
-        actor: string;
-        dialogue: string;
-      }[];
-    };
-  };
-};
 
 export async function transcribeAudio(input: TranscribeAudioInput): Promise<TranscribeAudioOutput> {
   return transcribeAudioFlow(input);
@@ -53,22 +39,13 @@ const transcribeAudioFlow = ai.defineFlow(
     inputSchema: TranscribeAudioInputSchema,
     outputSchema: TranscribeAudioOutputSchema,
   },
-  async input => {
-    // Convert to Blob and File
+  async (input) => {
     const blob = dataURItoBlob(input.audioDataUri);
     const file = new File([blob], "recording.wav", { type: blob.type });
 
-    // Call Python API
-    const response = await callTranscribeApi({ file }) as FullTranscriptionResponse;
+    // Call Python API and return the result directly.
+    const response = await callTranscribeApi({ file });
 
-    // ✅ Save the structured transcript for later (e.g., graph generation)
-    saveStructuredTranscript(response.structured);
-    console.log('✅ [transcribe-audio] Saved structured transcript:', response.structured?.root?.content);
-
-
-    // ✅ Return only the readable transcript for UI
-    return {
-      transcript: response.transcript,
-    };
+    return response;
   }
 );
