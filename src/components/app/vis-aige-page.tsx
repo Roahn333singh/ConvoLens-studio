@@ -166,7 +166,6 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
-      console.log('Data being sent to generate graph API from UI:', JSON.stringify({ transcript: data }, null, 2));
       const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
       if (!isGraphExpanded) {
