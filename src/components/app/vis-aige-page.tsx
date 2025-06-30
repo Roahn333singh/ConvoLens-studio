@@ -67,8 +67,6 @@ export default function VisAigePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
 
-  // This function is the key to fixing the state bug.
-  // It only changes the active tab and does NOT reset any shared state.
   const handleTabChange = (newTab: string) => {
     setActiveTab(newTab);
   };
@@ -76,9 +74,9 @@ export default function VisAigePage() {
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Clear previous state when new data is introduced
-      setAnswer('');
+      // Aggressively reset state when new data is introduced
       setQuery('');
+      setAnswer('');
       setGraphData(null);
       setAudioFile(null);
       setAudioDataUri(null);
@@ -108,28 +106,7 @@ export default function VisAigePage() {
             description: "There was an error reading the file.",
         });
       }
-
-      if (file.type === 'application/json') {
-          setLoading(prev => ({ ...prev, isSummarizing: true }));
-          reader.readAsText(file);
-          // Also generate summary for JSON
-          const summaryReader = new FileReader();
-          summaryReader.onload = async (e) => {
-              const fileContent = e.target?.result as string;
-              try {
-                  const summaryResult = await summarizeUploadedData({ data: fileContent });
-                  setData(summaryResult.summary); // Update text area with summary
-              } catch (err) {
-                  const description = err instanceof Error ? err.message : 'An unknown error occurred.';
-                  toast({ variant: "destructive", title: "Summarization Failed", description });
-              } finally {
-                  setLoading(prev => ({ ...prev, isSummarizing: false }));
-              }
-          }
-          summaryReader.readAsText(file);
-      } else {
-        reader.readAsText(file);
-      }
+      reader.readAsText(file);
     }
   };
   
@@ -176,8 +153,8 @@ export default function VisAigePage() {
     }
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
     // Aggressively reset state on new data introduction
-    setAnswer('');
     setQuery('');
+    setAnswer('');
     setGraphData(null);
 
     try {
@@ -248,7 +225,6 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isQuerying: true }));
     setAnswer('');
     try {
-      // Always use the current `data` from the state
       const result = await queryDataWithLLM({ data, query });
       setAnswer(result.answer);
     } catch (error)
