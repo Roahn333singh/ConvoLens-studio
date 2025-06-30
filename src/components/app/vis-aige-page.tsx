@@ -1,13 +1,14 @@
 
 "use client";
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import {
   BrainCircuit,
   ChevronDown,
   FileText,
   Loader2,
   Mic,
+  Paintbrush,
   RefreshCw,
   Search,
   Upload,
@@ -22,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,7 +54,7 @@ type LoadingStates = {
   isSummarizing: boolean;
 };
 
-export default function VisAigePage() {
+export default function ConvoLensPage() {
   const { toast } = useToast();
   const [data, setData] = useState('');
   const [query, setQuery] = useState('');
@@ -67,16 +76,19 @@ export default function VisAigePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleTabChange = (newTab: string) => {
-    setActiveTab(newTab);
-  };
+  const [theme, setTheme] = useState('theme-default');
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('theme-default', 'theme-ocean', 'theme-forest');
+    root.classList.add(theme);
+  }, [theme]);
   
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Aggressively reset state when new data is introduced
-      setQuery('');
       setAnswer('');
+      setQuery('');
       setGraphData(null);
       setAudioFile(null);
       setAudioDataUri(null);
@@ -85,17 +97,17 @@ export default function VisAigePage() {
       reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
-          setData(text); // Set the full file content as the main data
+          setData(text);
           toast({
             title: "File Loaded",
-            description: `${file.name} has been loaded. You can now query it or generate a graph.`,
+            description: `${file.name} has been loaded.`,
           });
         } catch (error) {
             const description = error instanceof Error ? error.message : 'An unknown error occurred.';
             toast({ variant: "destructive", title: "File Error", description });
         } finally {
             if (event.target) {
-              event.target.value = ''; // Reset file input
+              event.target.value = '';
             }
         }
       };
@@ -152,14 +164,13 @@ export default function VisAigePage() {
       return;
     }
     setLoading((prev) => ({ ...prev, isTranscribing: true }));
-    // Aggressively reset state on new data introduction
-    setQuery('');
     setAnswer('');
+    setQuery('');
     setGraphData(null);
 
     try {
       const result = await transcribeAudio({ audioDataUri });
-      setData(result.transcript); // Set the new transcript as the main data
+      setData(result.transcript);
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -187,6 +198,7 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
+      console.log("Sending to generateGraphNetwork:", { transcript: data });
       const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
       if (!isGraphExpanded) {
@@ -242,9 +254,32 @@ export default function VisAigePage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="p-4 border-b">
-        <div className="container mx-auto flex items-center gap-2">
-            <BrainCircuit className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold font-headline">VisAIge</h1>
+        <div className="container mx-auto flex items-center justify-between">
+            <div className='flex items-center gap-2'>
+              <BrainCircuit className="w-8 h-8 text-primary" />
+              <h1 className="text-2xl font-bold font-headline">ConvoLens</h1>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Paintbrush className="h-4 w-4" />
+                  <span className="sr-only">Change Theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Select Theme</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTheme('theme-default')}>
+                    Default
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('theme-ocean')}>
+                    Ocean
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('theme-forest')}>
+                    Forest
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </header>
 
@@ -260,7 +295,7 @@ export default function VisAigePage() {
               <CardContent className="flex flex-col gap-4">
                 <div className="space-y-2">
                   <Label>Data Input</Label>
-                  <Tabs value={activeTab} onValueChange={handleTabChange}>
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="text"><FileText className="w-4 h-4 mr-2"/>Text</TabsTrigger>
                       <TabsTrigger value="upload"><Upload className="w-4 h-4 mr-2"/>File</TabsTrigger>
@@ -283,7 +318,7 @@ export default function VisAigePage() {
                           className="hidden"
                           accept=".txt,.json"
                       />
-                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isSummarizing}>
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
                         {loading.isSummarizing ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
                         ) : (
@@ -306,6 +341,7 @@ export default function VisAigePage() {
                           className="w-full"
                           variant="outline"
                           onClick={() => audioFileInputRef.current?.click()}
+                          disabled={isLoading}
                         >
                           <Upload className="w-4 h-4 mr-2" />
                           Upload an audio file
