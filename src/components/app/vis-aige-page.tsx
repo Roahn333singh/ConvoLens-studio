@@ -30,6 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { generateGraphNetwork, type GenerateGraphNetworkOutput } from '@/ai/flows/generate-graph-network';
 import { queryDataWithLLM } from '@/ai/flows/query-data-with-llm';
+import { summarizeUploadedData } from '@/ai/flows/summarize-uploaded-data';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,7 +42,7 @@ type LoadingStates = {
   isGeneratingGraph: boolean;
   isQuerying: boolean;
   isTranscribing: boolean;
-  isUploading: boolean;
+  isSummarizing: boolean;
 };
 
 export default function VisAigePage() {
@@ -56,7 +57,7 @@ export default function VisAigePage() {
     isGeneratingGraph: false,
     isQuerying: false,
     isTranscribing: false,
-    isUploading: false,
+    isSummarizing: false,
   });
 
   const [activeTab, setActiveTab] = useState('text');
@@ -66,26 +67,19 @@ export default function VisAigePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioFileInputRef = useRef<HTMLInputElement>(null);
 
+  // This function is the key to fixing the state bug.
+  // It only changes the active tab and does NOT reset any shared state.
   const handleTabChange = (newTab: string) => {
     setActiveTab(newTab);
-    // Reset states to avoid using stale data from other tabs
-    setData('');
-    setQuery('');
-    setAnswer('');
-    setAudioFile(null);
-    setAudioDataUri(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (audioFileInputRef.current) audioFileInputRef.current.value = '';
-    // We don't reset graphData so the user can still see the last generated graph
   };
   
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setLoading(prev => ({ ...prev, isUploading: true }));
-      // Aggressively reset state on new data introduction
+      // Clear previous state when new data is introduced
       setAnswer('');
       setQuery('');
+      setGraphData(null);
       setAudioFile(null);
       setAudioDataUri(null);
 
@@ -93,7 +87,7 @@ export default function VisAigePage() {
       reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
-          setData(text);
+          setData(text); // Set the full file content as the main data
           toast({
             title: "File Loaded",
             description: `${file.name} has been loaded. You can now query it or generate a graph.`,
@@ -103,9 +97,8 @@ export default function VisAigePage() {
             toast({ variant: "destructive", title: "File Error", description });
         } finally {
             if (event.target) {
-              event.target.value = '';
+              event.target.value = ''; // Reset file input
             }
-            setLoading(prev => ({ ...prev, isUploading: false }));
         }
       };
       reader.onerror = () => {
@@ -114,9 +107,29 @@ export default function VisAigePage() {
             title: "File Error",
             description: "There was an error reading the file.",
         });
-        setLoading(prev => ({ ...prev, isUploading: false }));
       }
-      reader.readAsText(file);
+
+      if (file.type === 'application/json') {
+          setLoading(prev => ({ ...prev, isSummarizing: true }));
+          reader.readAsText(file);
+          // Also generate summary for JSON
+          const summaryReader = new FileReader();
+          summaryReader.onload = async (e) => {
+              const fileContent = e.target?.result as string;
+              try {
+                  const summaryResult = await summarizeUploadedData({ data: fileContent });
+                  setData(summaryResult.summary); // Update text area with summary
+              } catch (err) {
+                  const description = err instanceof Error ? err.message : 'An unknown error occurred.';
+                  toast({ variant: "destructive", title: "Summarization Failed", description });
+              } finally {
+                  setLoading(prev => ({ ...prev, isSummarizing: false }));
+              }
+          }
+          summaryReader.readAsText(file);
+      } else {
+        reader.readAsText(file);
+      }
     }
   };
   
@@ -165,10 +178,11 @@ export default function VisAigePage() {
     // Aggressively reset state on new data introduction
     setAnswer('');
     setQuery('');
+    setGraphData(null);
 
     try {
       const result = await transcribeAudio({ audioDataUri });
-      setData(result.transcript);
+      setData(result.transcript); // Set the new transcript as the main data
       setActiveTab('text');
       toast({
         title: 'Audio Transcribed',
@@ -234,6 +248,7 @@ export default function VisAigePage() {
     setLoading(prev => ({ ...prev, isQuerying: true }));
     setAnswer('');
     try {
+      // Always use the current `data` from the state
       const result = await queryDataWithLLM({ data, query });
       setAnswer(result.answer);
     } catch (error)
@@ -245,6 +260,8 @@ export default function VisAigePage() {
       setLoading(prev => ({ ...prev, isQuerying: false }));
     }
   };
+
+  const isLoading = loading.isGeneratingGraph || loading.isQuerying || loading.isSummarizing || loading.isTranscribing;
 
   return (
     <div className="min-h-screen bg-background">
@@ -290,13 +307,13 @@ export default function VisAigePage() {
                           className="hidden"
                           accept=".txt,.json"
                       />
-                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isUploading}>
-                        {loading.isUploading ? (
+                      <Button className="w-full" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={loading.isSummarizing}>
+                        {loading.isSummarizing ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
                         ) : (
                           <Upload className="w-4 h-4 mr-2"/>
                         )}
-                        {loading.isUploading ? 'Loading...' : 'Upload .txt or .json'}
+                        {loading.isSummarizing ? 'Loading...' : 'Upload .txt or .json'}
                       </Button>
                     </TabsContent>
                     <TabsContent value="audio" className="mt-4">
@@ -339,7 +356,7 @@ export default function VisAigePage() {
                   </Tabs>
                 </div>
                 
-                <Button onClick={handleGenerateGraph} disabled={loading.isGeneratingGraph || !data}>
+                <Button onClick={handleGenerateGraph} disabled={isLoading || !data}>
                   {loading.isGeneratingGraph && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Generate Graph
                 </Button>
@@ -362,7 +379,7 @@ export default function VisAigePage() {
                         className="min-h-[120px]"
                     />
                 </div>
-                <Button onClick={handleQuery} disabled={loading.isQuerying || !data} className="w-full">
+                <Button onClick={handleQuery} disabled={isLoading || !data} className="w-full">
                     {loading.isQuerying ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
