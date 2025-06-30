@@ -97,7 +97,31 @@ export default function ConvoLensPage() {
       reader.onload = (e) => {
         try {
           const text = e.target?.result as string;
-          setData(text);
+          let processedData = text;
+
+          if (file.name.toLowerCase().endsWith('.json')) {
+            try {
+              const jsonData = JSON.parse(text);
+              if (jsonData?.root?.content && Array.isArray(jsonData.root.content)) {
+                processedData = jsonData.root.content
+                  .map((block: any) => `${block.actor || 'SPEAKER'}: ${block.dialogue || ''}`)
+                  .join('\n');
+              } else {
+                 toast({
+                    variant: "destructive",
+                    title: "Invalid JSON Format",
+                    description: "The JSON file does not have the expected 'root.content' structure.",
+                });
+              }
+            } catch (jsonError) {
+                toast({
+                    variant: "destructive",
+                    title: "JSON Parse Error",
+                    description: "Could not parse the JSON file. Please ensure it is valid.",
+                });
+            }
+          }
+          setData(processedData);
           toast({
             title: "File Loaded",
             description: `${file.name} has been loaded.`,
@@ -432,7 +456,7 @@ export default function ConvoLensPage() {
                 <div className="flex justify-between items-center">
                   <div className="flex flex-col">
                     <CardTitle className="font-headline">Graph Visualization</CardTitle>
-                    <CardDescription>Network data from your API. Click to expand.</CardDescription>
+                    <CardDescription>Network Data.Click To Expand</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={(e) => { e.stopPropagation(); setZoom(z => z + 0.1); }}>
