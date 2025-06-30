@@ -29,10 +29,11 @@ function createApiError(apiName: string, err: any, url?: string): Error {
  * @returns The graph visualization as a data URI.
  */
 export async function callGraphApi(input: GenerateGraphNetworkInput): Promise<GenerateGraphNetworkOutput> {
-  const url = process.env.GRAPH_API_URL;
-  if (!url) {
+  const baseUrl = process.env.GRAPH_API_URL;
+  if (!baseUrl) {
       throw createApiError('Graph API', new Error("GRAPH_API_URL environment variable is not set."));
   }
+  const url = `${baseUrl}?timestamp=${Date.now()}`;
 
   try {
       info(`[callGraphApi] Calling ${url}`);
@@ -40,12 +41,12 @@ export async function callGraphApi(input: GenerateGraphNetworkInput): Promise<Ge
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
+          cache: 'no-store',
       });
 
       if (!response.ok) {
           const errorText = await response.text().catch(() => 'Could not read error response body.');
           error(`[callGraphApi] API returned an error: ${response.status} ${response.statusText} - ${errorText}`);
-          // This creates a very specific error message that should show up in the toast.
           throw new Error(`Graph API Error: ${response.status} ${response.statusText}. Details: ${errorText.substring(0, 200)}...`);
       }
 
@@ -63,10 +64,11 @@ export async function callGraphApi(input: GenerateGraphNetworkInput): Promise<Ge
  * @returns The answer from the API.
  */
 export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryDataWithLLMOutput> {
-    const url = process.env.QUERY_API_URL;
-    if (!url) {
+    const baseUrl = process.env.QUERY_API_URL;
+    if (!baseUrl) {
         throw createApiError('Query API', new Error("QUERY_API_URL environment variable is not set."));
     }
+    const url = `${baseUrl}?timestamp=${Date.now()}`;
 
     try {
         info(`[callQueryApi] Calling ${url}`);
@@ -74,6 +76,7 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(input),
+            cache: 'no-store',
         });
 
         if (!response.ok) {
@@ -96,20 +99,21 @@ export async function callQueryApi(input: QueryDataWithLLMInput): Promise<QueryD
  * @returns The transcript from the API.
  */
 export async function callTranscribeApi(input: { file: File }): Promise<TranscribeAudioOutput> {
-  const url = process.env.TRANSCRIBE_API_URL;
-  if (!url) {
+  const baseUrl = process.env.TRANSCRIBE_API_URL;
+  if (!baseUrl) {
     throw createApiError('Transcribe API', new Error("TRANSCRIBE_API_URL environment variable is not set."));
   }
+  const url = `${baseUrl}?timestamp=${Date.now()}`;
 
   const formData = new FormData();
   formData.append('file', input.file);
 
   try {
     info(`[callTranscribeApi] Calling ${url}`);
-    console.log('[callTranscribeApi] Requesting URL:', url);
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
+      cache: 'no-store',
     });
 
     if (!response.ok) {
