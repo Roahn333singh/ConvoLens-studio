@@ -222,7 +222,6 @@ export default function ConvoLensPage() {
     setLoading(prev => ({ ...prev, isGeneratingGraph: true }));
     setGraphData(null);
     try {
-      console.log("Sending to generateGraphNetwork:", { transcript: data });
       const result = await generateGraphNetwork({ transcript: data });
       setGraphData(result);
       if (!isGraphExpanded) {
