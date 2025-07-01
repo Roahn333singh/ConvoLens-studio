@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A flow for generating a graph network from a transcript.
+ * @fileOverview A flow for generating a graph network by calling a Python backend.
  *
  * - generateGraphNetwork - A function that takes a transcript and returns nodes and relationships.
  * - GenerateGraphNetworkInput - The input type for the generateGraphNetwork function.
@@ -8,6 +8,7 @@
  */
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { callGraphApi } from '@/services/python-api';
 
 const GenerateGraphNetworkInputSchema = z.object({
   transcript: z.string().describe('The transcript to generate the graph from.'),
@@ -36,23 +37,6 @@ export async function generateGraphNetwork(input: GenerateGraphNetworkInput): Pr
   return generateGraphNetworkFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'generateGraphNetworkPrompt',
-  input: {schema: GenerateGraphNetworkInputSchema},
-  output: {schema: GenerateGraphNetworkOutputSchema},
-  prompt: `From the transcript below, extract the key entities (nodes) and their relationships.
-  Identify entities such as people, places, organizations, and key concepts.
-  The 'id' should be a concise, unique identifier for the node.
-  The 'type' should be a single-word category (e.g., Person, Location, Organization, Concept, Weapon, Vehicle).
-  The 'detail' can be a brief description if necessary, otherwise leave it empty.
-  For relationships, the 'type' should describe the connection (e.g., MENTIONS, OBSERVES, IS_A, PART_OF).
-
-  Transcript:
-  {{{transcript}}}
-  `,
-});
-
-
 const generateGraphNetworkFlow = ai.defineFlow(
   {
     name: 'generateGraphNetworkFlow',
@@ -60,8 +44,8 @@ const generateGraphNetworkFlow = ai.defineFlow(
     outputSchema: GenerateGraphNetworkOutputSchema,
   },
   async input => {
-    console.log('Data received in generateGraphNetworkFlow:', JSON.stringify(input, null, 2));
-    const {output} = await prompt(input);
-    return output!;
+    // Instead of calling an LLM, we call the Python API service.
+    const response = await callGraphApi(input);
+    return response;
   }
 );
