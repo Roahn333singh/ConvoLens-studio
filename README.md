@@ -46,7 +46,8 @@ If you're interested in backend logic, check out the core file:
 
 ## 🖼️ Screenshots
 
-<img width="1710" alt="Dashboard Screenshot" src="https://github.com/user-attachments/assets/9708f577-6154-4798-9a39-dc16f4b7aa64" />
+<img width="1675" alt="image" src="https://github.com/user-attachments/assets/39e54975-a21a-4de7-b670-1bc41310beeb" />
+
 
 <img width="1613" alt="Insight View Screenshot" src="https://github.com/user-attachments/assets/76c74310-8dba-47d2-a59f-594acbf94182" />
 
