@@ -46,10 +46,11 @@ If you're interested in backend logic, check out the core file:
 
 ## 🖼️ Screenshots
 
-<img width="1675" alt="image" src="https://github.com/user-attachments/assets/39e54975-a21a-4de7-b670-1bc41310beeb" />
+<img width="1631" alt="image" src="https://github.com/user-attachments/assets/06c1dfe9-3556-4b49-8edc-dc81426d387d" />
 
 
-<img width="1613" alt="Insight View Screenshot" src="https://github.com/user-attachments/assets/76c74310-8dba-47d2-a59f-594acbf94182" />
+<img width="996" alt="image" src="https://github.com/user-attachments/assets/dbcd1ac0-a86c-4cac-933a-4f9755ccf133" />
+
 
 ---
 
