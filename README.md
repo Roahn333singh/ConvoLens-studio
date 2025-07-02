@@ -1,5 +1,5 @@
-# Firebase Studio
+#ConvoLens 
 
-This is a NextJS starter in Firebase Studio.
+This is a Frontend of application.
 
 To get started, take a look at src/app/page.tsx.
